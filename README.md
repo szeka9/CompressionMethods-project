@@ -1,6 +1,7 @@
 # HuffmanTransducer
 Compression methods project repository
 
+##Description
 The implementation contains:
 1. a Huffman encoder based on transducers
 2. a precompressor using Markov chains
@@ -14,3 +15,10 @@ Pseudocode:
   2. for each symbol, select the next most probable symbol based on the frequencies
   3. based on a frequency threshold, create an encoding map with two columns: if column1=symbolA, column2=symbolB then the consequent symbol of symbolA should be XORed with symbolB
   4. execute the encoding on the input data using the encoding table (starting from the first symbol)
+
+##How to run
+cd src
+make
+./HuffmanTransducer ../samples/sip_flow.pcap
+
+Boost libraries are required to compile the code.
