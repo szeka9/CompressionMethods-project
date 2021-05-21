@@ -26,3 +26,31 @@ Pseudocode:
 
 
 Boost libraries are required to compile the code.
+
+## Example output
+
+File size: 171782 bytes.
+Reading/generating the input took 8 milliseconds
+--------------------------------------------------------------
+The entropy of the original data is: 11.5383
+The average code length of the original data is: 11.5815
+--------------------------------------------------------------
+Statistics and tree creation of the original data took 48 milliseconds
+--------------------------------------------------------------
+The entropy of the precompressed data is: 8.4445
+The average code length of the precompressed data is: 8.48594
+--------------------------------------------------------------
+Statistics and tree creation of the precompressed data took 45 milliseconds
+--------------------------------------------------------------
+Huffman encoding (original) took 20 milliseconds
+Huffman encoding (precompressed) took 16 milliseconds
+Huffman decoding (original) took 24 milliseconds
+Huffman decoding (precompressed) took 24 milliseconds
+--------------------------------------------------------------
+File size: 1374256
+Compressed size (original): 994748
+Compression ratio (original): 1.38151
+Compressed size (precompressed): 728866
+Compression ratio (precompressed): 1.88547
+Compression improvement using precompression: 36.4789%
+Decoding is successful!
