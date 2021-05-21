@@ -177,7 +177,7 @@ HuffmanTransducer::encode(const BinaryUtils::bitSet& chunk, size_t symbolSize)
 
    for (size_t i = 0; i < chunk.size(); i += symbolSize) {
 
-      for (unsigned int j = 0; j < symbolSize; ++j) {
+      for (size_t j = 0; j < symbolSize; ++j) {
          buffer[j] = chunk[j + i];
       }
 

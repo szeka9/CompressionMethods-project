@@ -6,8 +6,8 @@
 #include <iostream>
 #include <string>
 
-#define DEF_SYMBOLSIZE 16 // Experimental: does not work for odd byte sizes
-#define DEF_PROBABILITY_THRESHOLD 0.1
+#define DEF_SYMBOLSIZE 16             // Note: does not work for odd byte sizes
+#define DEF_PROBABILITY_THRESHOLD 0.1 // State transitions with >10% probability
 
 void
 printDurationMessage(const std::string& what,
@@ -50,8 +50,7 @@ main(int argc, char** argv)
 
       // Statistics & tree ##########################################
       t1 = std::chrono::high_resolution_clock::now();
-      std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> stats =
-        BinaryUtils::getStatistics(inputData, DEF_SYMBOLSIZE);
+      auto stats = BinaryUtils::getStatistics(inputData, DEF_SYMBOLSIZE);
       HuffmanTransducer h(stats);
 
       printConsoleLine();
