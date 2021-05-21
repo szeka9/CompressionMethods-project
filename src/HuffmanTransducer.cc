@@ -35,14 +35,15 @@ HuffmanTransducer::state::forward(bool b)
 ///////////////////////////////////////////////////////////////////////////////
 
 HuffmanTransducer::endState::endState(HuffmanTransducer* iContext,
-    HuffmanTransducer::state* iZero,
-    HuffmanTransducer::state* iOne)
-    : state(iZero, iZero)
+                                      HuffmanTransducer::state* iZero,
+                                      HuffmanTransducer::state* iOne)
+  : state(iZero, iZero)
 {
    context = iContext;
 }
 
-void HuffmanTransducer::endState::writeBuffer()
+void
+HuffmanTransducer::endState::writeBuffer()
 {
    BinaryUtils::bitSet currentSymbol = context->mSymbolMap.at(this);
    for (boost::dynamic_bitset<>::size_type i = 0; i < currentSymbol.size(); ++i)
@@ -68,7 +69,7 @@ HuffmanTransducer::endState::forward(bool b)
 ///////////////////////////////////////////////////////////////////////////////
 
 HuffmanTransducer::HuffmanTransducer(
-    std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> iSymbolMap)
+  std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> iSymbolMap)
 {
    mRootState = new state();
    mCurrentState = mRootState;
@@ -90,17 +91,15 @@ HuffmanTransducer::HuffmanTransducer(
    // Construct the tree based on minimum probabilities
    while (grouppingMap.size() > 0) {
       if (grouppingMap.size() > 2) {
-         state* parentElement = new state(grouppingMap.begin()->second,
-             std::next(grouppingMap.begin())->second);
+         state* parentElement =
+           new state(grouppingMap.begin()->second, std::next(grouppingMap.begin())->second);
          double sum = grouppingMap.begin()->first + std::next(grouppingMap.begin())->first;
-         grouppingMap.erase(grouppingMap.begin(),
-             std::next(grouppingMap.begin(), 2));
+         grouppingMap.erase(grouppingMap.begin(), std::next(grouppingMap.begin(), 2));
          grouppingMap.insert(std::make_pair(sum, parentElement));
       } else {
          mRootState->stateTransitions[0] = grouppingMap.begin()->second;
          mRootState->stateTransitions[1] = std::next(grouppingMap.begin())->second;
-         grouppingMap.erase(grouppingMap.begin(),
-             std::next(grouppingMap.begin(), 2));
+         grouppingMap.erase(grouppingMap.begin(), std::next(grouppingMap.begin(), 2));
       }
    }
 
@@ -159,18 +158,18 @@ HuffmanTransducer::HuffmanTransducer(
 BinaryUtils::bitSet
 HuffmanTransducer::encodeSymbol(const BinaryUtils::bitSet& b) const
 {
-   // if (mEndStates.at(b) != nullptr)
+   // if (mEndStates.at(BinaryUtils::hashValue(b)) != nullptr)
    return mEndStates.at(BinaryUtils::hashValue(b))->encoded;
    // else
-   // throw 1;
+   // throw "Null pointer in the end states!";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// encodeChunk
+// encode
 ///////////////////////////////////////////////////////////////////////////////
 
 BinaryUtils::bitSet
-HuffmanTransducer::encodeChunk(const BinaryUtils::bitSet& chunk, size_t symbolSize)
+HuffmanTransducer::encode(const BinaryUtils::bitSet& chunk, size_t symbolSize)
 {
    BinaryUtils::bitSet output;
    BinaryUtils::bitSet buffer(symbolSize);
@@ -189,8 +188,7 @@ HuffmanTransducer::encodeChunk(const BinaryUtils::bitSet& chunk, size_t symbolSi
       }
 
       /*if (mCurrentState != mRootState) {
-         std::cout << "Did not return to root state!" << std::endl;
-         throw 1;
+         throw "Did not return to root state!";
       }*/
    }
    return output;
@@ -200,16 +198,18 @@ HuffmanTransducer::encodeChunk(const BinaryUtils::bitSet& chunk, size_t symbolSi
 // decodeChangeState
 ///////////////////////////////////////////////////////////////////////////////
 
-void HuffmanTransducer::decodeChangeState(bool b)
+void
+HuffmanTransducer::decodeChangeState(bool b)
 {
    mCurrentState = mCurrentState->forward(b);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// decodeChunk
+// decode
 ///////////////////////////////////////////////////////////////////////////////
 
-void HuffmanTransducer::decodeChunk(const BinaryUtils::bitSet& chunk)
+void
+HuffmanTransducer::decode(const BinaryUtils::bitSet& chunk)
 {
    for (boost::dynamic_bitset<>::size_type i = 0; i < chunk.size(); ++i)
       decodeChangeState(chunk[i]);
@@ -217,10 +217,11 @@ void HuffmanTransducer::decodeChunk(const BinaryUtils::bitSet& chunk)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// flushBuffer
+// moveBuffer
 ///////////////////////////////////////////////////////////////////////////////
 
-void HuffmanTransducer::flushBuffer(BinaryUtils::bitSet& output)
+void
+HuffmanTransducer::moveBuffer(BinaryUtils::bitSet& output)
 {
    output = std::move(mBuffer);
    mBuffer.clear();
@@ -256,5 +257,6 @@ int HuffmanTransducer::getRepresentationSize()
    return std::accumulate(
        mEndStates.begin(), mEndStates.end(), 0,
        [](int value,
-           std::unordered_map<BinaryUtils::bitSet, endState*>::value_type& p) { return value + p.second->encoded.size(); });
+           std::unordered_map<BinaryUtils::bitSet, endState*>::value_type& p) {
+return value + p.second->encoded.size(); });
 }*/

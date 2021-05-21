@@ -6,12 +6,14 @@
 #include <map>
 #include <unordered_map>
 
-class HuffmanTransducer {
-   private:
-   class state {
-  public:
+class HuffmanTransducer
+{
+ private:
+   class state
+   {
+    public:
       state(state* iZero = nullptr, state* iOne = nullptr);
-      virtual ~state() { }
+      virtual ~state() {}
 
       state* stateTransitions[2];
       bool mZeroVisited;
@@ -22,11 +24,10 @@ class HuffmanTransducer {
       virtual state* forward(bool);
    };
 
-   class endState : public state {
-  public:
-      endState(HuffmanTransducer* iContext,
-          state* iZero = nullptr,
-          state* iOne = nullptr);
+   class endState : public state
+   {
+    public:
+      endState(HuffmanTransducer* iContext, state* iZero = nullptr, state* iOne = nullptr);
 
       void writeBuffer();
       state* next(bool) override;
@@ -36,20 +37,20 @@ class HuffmanTransducer {
       HuffmanTransducer* context;
    };
 
-   public:
+ public:
    HuffmanTransducer(std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> iSymbolMap);
 
    BinaryUtils::bitSet encodeSymbol(const BinaryUtils::bitSet& b) const;
-   BinaryUtils::bitSet encodeChunk(const BinaryUtils::bitSet& chunk, size_t symbolSize);
+   BinaryUtils::bitSet encode(const BinaryUtils::bitSet& chunk, size_t symbolSize);
 
-   void decodeChunk(const BinaryUtils::bitSet& chunk);
-   void flushBuffer(BinaryUtils::bitSet& output);
-   //unsigned int getRepresentationSize();
-   //void printEncodingTable() const;
+   void decode(const BinaryUtils::bitSet& chunk);
+   void moveBuffer(BinaryUtils::bitSet& output);
+   // unsigned int getRepresentationSize();
+   // void printEncodingTable() const;
    double getEntropy() const;
    double getAvgCodeLength() const;
 
-   private:
+ private:
    void decodeChangeState(bool b);
 
    double mEntropy;
