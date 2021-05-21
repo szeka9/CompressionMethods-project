@@ -17,8 +17,12 @@ Pseudocode:
   4. execute the encoding on the input data using the encoding table (starting from the first symbol)
 
 ## How to run
+
 cd src
+
 make
+
 ./HuffmanTransducer ../samples/sip_flow.pcap
+
 
 Boost libraries are required to compile the code.
