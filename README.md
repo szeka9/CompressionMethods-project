@@ -12,4 +12,5 @@ The precompressor uses a probabilistic model to reduce the entropy of the data.
 Pseudocode:
   1. measure the frequency of each symbol transition (for consequent symbols)
   2. for each symbol, select the next most probable symbol based on the frequencies
-  3. based on a threshold, create an encoding map with two columns: if column1=symbolA, column2=symbolB then the consequent symbol of symbolA should be XORed with symbolB
+  3. based on a frequency threshold, create an encoding map with two columns: if column1=symbolA, column2=symbolB then the consequent symbol of symbolA should be XORed with symbolB
+  4. execute the encoding on the input data using the encoding table (starting from the first symbol)
