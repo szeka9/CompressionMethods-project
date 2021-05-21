@@ -18,6 +18,8 @@ The precompressor uses a probabilistic model to reduce the entropy of the data.
 
 The algorithm performs well during text compression since natural language can be well described with Markov models. I have also tested network traffic data (see also: samples).
 
+Please note, that the current implementation does not support exporting the compressed data but information is displayed in the console (see also: Example output).
+
 ## How to run
 
   <i>cd src</i>
