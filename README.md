@@ -18,11 +18,11 @@ Pseudocode:
 
 ## How to run
 
-cd src
+  cd src
 
-make
+  make
 
-./HuffmanTransducer ../samples/sip_flow.pcap
+  ./HuffmanTransducer ../samples/sip_flow.pcap
 
 
 Boost libraries are required to compile the code.
