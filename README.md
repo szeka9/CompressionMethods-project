@@ -2,8 +2,8 @@
 Compression methods project repository
 
 The implementation contains:
--a Huffman encoder based on transducers
--a precompressor using Markov chains
+1. a Huffman encoder based on transducers
+2. a precompressor using Markov chains
 
 The main idea of this project is a precompressor based Markov chains. I originally implemented a different algorithm, but due to programming errors, I didn't realize it was incorrect. The original algorithm was aiming to cluster binary values (0, 1) in an algorithmic way, so that the different values form larger clusters. However, certain steps of the algorithm cased information loss.
 
