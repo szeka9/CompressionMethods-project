@@ -251,12 +251,18 @@ HuffmanTransducer::getAvgCodeLength() const
    return sum;
 }
 
-/*
-int HuffmanTransducer::getRepresentationSize()
+///////////////////////////////////////////////////////////////////////////////
+// getRepresentationSize
+///////////////////////////////////////////////////////////////////////////////
+
+unsigned int
+HuffmanTransducer::getRepresentationSize()
 {
    return std::accumulate(
-       mEndStates.begin(), mEndStates.end(), 0,
-       [](int value,
-           std::unordered_map<BinaryUtils::bitSet, endState*>::value_type& p) {
-return value + p.second->encoded.size(); });
-}*/
+     mEndStates.begin(),
+     mEndStates.end(),
+     0,
+     [](int value, std::unordered_map<unsigned int, endState*>::value_type& p) {
+        return value + p.second->encoded.size();
+     });
+}

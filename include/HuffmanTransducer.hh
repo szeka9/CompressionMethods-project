@@ -45,7 +45,7 @@ class HuffmanTransducer
 
    void decode(const BinaryUtils::bitSet& chunk);
    void moveBuffer(BinaryUtils::bitSet& output);
-   // unsigned int getRepresentationSize();
+   unsigned int getRepresentationSize();
    // void printEncodingTable() const;
    double getEntropy() const;
    double getAvgCodeLength() const;

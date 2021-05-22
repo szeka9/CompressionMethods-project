@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-#define DEF_SYMBOLSIZE 16             // Note: does not work for odd byte sizes
+#define DEF_SYMBOLSIZE 32             // Note: does not work for odd byte sizes
 #define DEF_PROBABILITY_THRESHOLD 0.1 // State transitions with >10% probability
 
 void
@@ -20,9 +20,16 @@ printDurationMessage(const std::string& what,
 }
 
 void
-printConsoleLine()
+printConsoleLine(const std::string header = "")
 {
-   std::cout << "--------------------------------------------------------------" << std::endl;
+   size_t maxSize = 80;
+   std::cout << std::endl;
+   for (size_t i = 0; i < (maxSize - header.size()) / 2; ++i)
+      std::cout << "-";
+   std::cout << header;
+   for (size_t i = 0; i < (maxSize - header.size()) / 2; ++i)
+      std::cout << "-";
+   std::cout << std::endl;
 }
 
 int
@@ -43,7 +50,6 @@ main(int argc, char** argv)
       // Generate or read binary #####################################
       auto t1 = std::chrono::high_resolution_clock::now();
       BinaryUtils::bitSet inputData = BinaryUtils::readBinary(inputName, 0);
-      // BinaryUtils::bitSet inputData =
       // BinaryUtils::getExpRandomBitStream(100000000);
       auto t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Reading/generating the input", t1, t2);
@@ -52,14 +58,15 @@ main(int argc, char** argv)
       t1 = std::chrono::high_resolution_clock::now();
       auto stats = BinaryUtils::getStatistics(inputData, DEF_SYMBOLSIZE);
       HuffmanTransducer h(stats);
-
-      printConsoleLine();
-      std::cout << "The entropy of the original data is: " << h.getEntropy() << std::endl;
-      std::cout << "The average code length of the original data is: " << h.getAvgCodeLength()
-                << std::endl;
-      printConsoleLine();
       t2 = std::chrono::high_resolution_clock::now();
-      printDurationMessage("Statistics and tree creation of the original data", t1, t2);
+
+      printConsoleLine("Original data");
+      std::cout << "The entropy is: " << h.getEntropy() << std::endl;
+      std::cout << "The average code length is: " << h.getAvgCodeLength() << std::endl;
+      std::cout << "The size of the encoding table is: " << h.getRepresentationSize() / 8000.0
+                << " KB" << std::endl;
+      printDurationMessage("Statistics and tree creation", t1, t2);
+      std::cout << "Symbolsize (bits): " << DEF_SYMBOLSIZE << std::endl;
 
       // Precompression with Markov chain ###########################
       auto markovChain = BinaryUtils::computeMarkovChain(inputData, DEF_SYMBOLSIZE);
@@ -74,17 +81,18 @@ main(int argc, char** argv)
       t1 = std::chrono::high_resolution_clock::now();
       auto stats2 = BinaryUtils::getStatistics(markovEncoded, DEF_SYMBOLSIZE);
       HuffmanTransducer h2(stats2);
-
-      printConsoleLine();
-      std::cout << "The entropy of the precompressed data is: " << h2.getEntropy() << std::endl;
-      std::cout << "The average code length of the precompressed data is: " << h2.getAvgCodeLength()
-                << std::endl;
-      printConsoleLine();
       t2 = std::chrono::high_resolution_clock::now();
-      printDurationMessage("Statistics and tree creation of the precompressed data", t1, t2);
+
+      printConsoleLine("Precompressed data");
+      std::cout << "The entropy is: " << h2.getEntropy() << std::endl;
+      std::cout << "The average code length is: " << h2.getAvgCodeLength() << std::endl;
+      std::cout << "The size of the encoding table is: " << h2.getRepresentationSize() / 8000.0
+                << " KB" << std::endl;
+      printDurationMessage("Statistics and tree creation", t1, t2);
+      std::cout << "Symbolsize (bits): " << DEF_SYMBOLSIZE << std::endl;
 
       // Encoding ###################################################
-      printConsoleLine();
+      printConsoleLine("Encoding");
       t1 = std::chrono::high_resolution_clock::now();
       BinaryUtils::bitSet encoded = h.encode(inputData, DEF_SYMBOLSIZE);
       t2 = std::chrono::high_resolution_clock::now();
@@ -113,26 +121,36 @@ main(int argc, char** argv)
       // ############################################################
       // BinaryUtils::writeBinary(outputName, encoded, true);
 
-      printConsoleLine();
-      float originalRate = float(inputData.size()) / float(encoded.size());
-      std::cout << "File size: " << inputData.size() << std::endl;
-      std::cout << "Compressed size (original): " << encoded.size() << std::endl;
-      std::cout << "Compression ratio (original): " << originalRate << std::endl;
+      printConsoleLine("File size");
+      std::cout << "File size: " << inputData.size() / 8000.0 << " KB" << std::endl;
+      std::cout << "Compressed size (original) with encoding table: "
+                << (h.getRepresentationSize() + encoded.size()) / 8000.0 << " KB" << std::endl;
+      std::cout << "Compressed size (precompressed) with encoding table: "
+                << (h2.getRepresentationSize() + encoded2.size()) / 8000.0 << " KB" << std::endl;
 
-      float precompressedRate = float(markovEncoded.size()) / float(encoded2.size());
-      std::cout << "Compressed size (precompressed): " << encoded2.size() << std::endl;
+      printConsoleLine("Compression ratio");
+      float originalRate =
+        float(inputData.size()) / (float(encoded.size()) + h.getRepresentationSize());
+      float precompressedRate =
+        float(markovEncoded.size()) / (float(encoded2.size()) + h2.getRepresentationSize());
+      std::cout << "Compression ratio (original): " << originalRate << std::endl;
       std::cout << "Compression ratio (precompressed): " << precompressedRate << std::endl;
 
       std::cout << "Compression improvement using precompression: "
                 << ((precompressedRate / originalRate) - 1) * 100 << "%" << std::endl;
 
       // Compare encoded and decoded data ###########################
-      if (inputData != decoded ||
-          inputData != BinaryUtils::markovDecode(encodingMap, decoded2, DEF_SYMBOLSIZE)) {
+      printConsoleLine();
+      auto markovDecoded_ = BinaryUtils::markovDecode(encodingMap, decoded2, DEF_SYMBOLSIZE);
+      if (inputData != decoded || inputData != markovDecoded_) {
          std::cout << "Decoding is not successful!" << std::endl;
       } else {
          std::cout << "Decoding is successful!" << std::endl;
       }
+      std::cout << "Hash (original data): " << BinaryUtils::hashValue(inputData) << std::endl;
+      std::cout << "Hash (decoded data): " << BinaryUtils::hashValue(decoded) << std::endl;
+      std::cout << "Hash (decoded data, precompressed): " << BinaryUtils::hashValue(markovDecoded_)
+                << std::endl;
 
    } catch (std::exception& E) {
       std::cout << E.what();

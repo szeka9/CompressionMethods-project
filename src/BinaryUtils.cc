@@ -101,7 +101,8 @@ std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>>
 BinaryUtils::getStatistics(BinaryUtils::bitSet input, size_t symbolSize)
 {
    if (input.size() % symbolSize != 0) {
-      throw std::runtime_error("Symbolsize does not correspond to the input size!");
+      throw std::runtime_error("Symbolsize does not correspond to the input size! You may need to "
+                               "change the symbolsize to 8 or 16.");
    }
 
    std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> result;
