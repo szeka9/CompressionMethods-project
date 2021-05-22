@@ -33,5 +33,6 @@ Boost libraries are required to compile the code.
 
 ## Example output
 
-![kép](https://user-images.githubusercontent.com/28252625/119203504-7886ef80-ba93-11eb-99ab-f58c313b7aa6.png)
+![kép](https://user-images.githubusercontent.com/28252625/119221172-58d0e500-baee-11eb-9b95-c40ddedc2520.png)
+
 
