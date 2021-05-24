@@ -16,9 +16,9 @@ The precompressor uses a probabilistic model to reduce the entropy of the data.
   3. based on a frequency threshold, create an encoding map with two columns: if column1=symbolA, column2=symbolB then the consequent symbol of symbolA should be XORed with symbolB
   4. execute the encoding on the input data using the encoding table (starting from the first symbol)
 
-The algorithm performs well during text compression since natural language can be well described with Markov models. I have also tested network traffic data (see also: samples).
+The algorithm was mostly tested on network traffic data (.pcap), and in some cases there is noticable difference in the compression.
 
-Please note, that the current implementation does not support exporting the compressed data but information is displayed in the console (see also: Example output).
+Please note, that the current implementation does not support exporting the compressed data but information about the compression is displayed in the console (see also: Example output).
 
 ## How to run
 
@@ -33,6 +33,7 @@ Boost libraries are required to compile the code.
 
 ## Example output
 
-![kép](https://user-images.githubusercontent.com/28252625/119221172-58d0e500-baee-11eb-9b95-c40ddedc2520.png)
+![kép](https://user-images.githubusercontent.com/28252625/119416489-05c87f00-bcf4-11eb-9b19-ea29d81e853b.png)
+
 
 
