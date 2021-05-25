@@ -11,7 +11,7 @@ The main idea of this project is a precompressor based Markov chains. I original
 <b>Precompressor pseudocode:</b>
   1. measure the frequency of each symbol transition (for consequent symbols)
   2. for each symbol, select the next most probable symbol based on the frequencies
-  3. based on a frequency threshold, create an encoding map with two columns: if column1=symbolA, column2=symbolB then the consequent symbol of symbolA should be XORed with symbolB
+  3. based on a frequency threshold, create an encoding map with two columns: if column 1 = symbol A, column 2 = symbol B then the consequent symbol of symbol A should be XORed with symbol B
   4. execute the encoding on the input data using the encoding table (starting from the first symbol)
 
 The algorithm was mostly tested on network traffic data (.pcap), and in some cases there is noticable difference in the compression.
