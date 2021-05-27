@@ -30,7 +30,8 @@ Boost libraries are required to compile the code.
 
 ## Example output
 
-![kép](https://user-images.githubusercontent.com/28252625/119855317-16eed700-bf12-11eb-980a-a24ce2e121cb.png)
+![kép](https://user-images.githubusercontent.com/28252625/119878414-5fb28a00-bf2a-11eb-9b76-619ee81b8211.png)
+
 
 
 
