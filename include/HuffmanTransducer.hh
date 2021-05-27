@@ -41,14 +41,14 @@ class HuffmanTransducer
    };
 
  public:
-   HuffmanTransducer(std::map<unsigned int, std::tuple<bitSet, double>> iSymbolMap);
+   HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap);
 
    bitSet encodeSymbol(const bitSet& b) const;
    bitSet encode(const bitSet& chunk, size_t symbolSize);
 
    void decode(const bitSet& chunk);
    void moveBuffer(bitSet& output);
-   unsigned int getTableSize();
+   size_t getTableSize();
    double getEntropy() const;
    double getAvgCodeLength() const;
 
@@ -58,7 +58,7 @@ class HuffmanTransducer
    double mEntropy;
    state* mRootState;
    state* mCurrentState;
-   std::unordered_map<unsigned int, endState*> mEndStates;
+   std::unordered_map<size_t, endState*> mEndStates;
    std::unordered_map<endState*, double> mCodeProbability;
    std::unordered_map<state*, bitSet> mSymbolMap;
    bitSet mBuffer;

@@ -70,14 +70,14 @@ HuffmanTransducer::endState::forward(bool b)
 // HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(std::map<unsigned int, std::tuple<bitSet, double>> iSymbolMap)
+HuffmanTransducer::HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap)
 {
    mRootState = new state();
    mCurrentState = mRootState;
 
    // Process the symbol map (create end states)
    std::multimap<double, state*> grouppingMap;
-   std::map<unsigned int, std::tuple<bitSet, double>>::iterator it;
+   std::map<size_t, std::tuple<bitSet, double>>::iterator it;
 
    for (it = iSymbolMap.begin(); it != iSymbolMap.end(); ++it) {
       endState* s = new endState(this, mRootState, mRootState);
@@ -256,14 +256,14 @@ HuffmanTransducer::getAvgCodeLength() const
 // getTableSize
 ///////////////////////////////////////////////////////////////////////////////
 
-unsigned int
+size_t
 HuffmanTransducer::getTableSize()
 {
-   return std::accumulate(
-     mEndStates.begin(),
-     mEndStates.end(),
-     0,
-     [&](int value, std::unordered_map<unsigned int, endState*>::value_type& p) {
-        return value + p.second->encoded.size() + mSymbolMap.at(p.second).size();
-     });
+   return std::accumulate(mEndStates.begin(),
+                          mEndStates.end(),
+                          0,
+                          [&](int value, std::unordered_map<size_t, endState*>::value_type& p) {
+                             return value + p.second->encoded.size() +
+                                    mSymbolMap.at(p.second).size();
+                          });
 }

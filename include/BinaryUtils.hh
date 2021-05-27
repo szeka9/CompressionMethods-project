@@ -15,13 +15,11 @@ readBinary(const std::string&, size_t);
 void
 writeBinary(const std::string&, const bitSet&, bool paddToBytes);
 
-std::map<unsigned int, std::tuple<bitSet, double>>
+std::map<size_t, std::tuple<bitSet, double>>
 getStatistics(bitSet input, size_t symbolSize = 8);
 
 bitSet
-getExpRandomBitStream(unsigned long int numBits,
-                      bool paddToBytes = false,
-                      size_t distribution = 20);
+getExpRandomBitStream(size_t numBits, bool paddToBytes = false, size_t distribution = 20);
 
 std::map<bitSet, std::map<bitSet, float>>
 computeMarkovChain(const bitSet& b, size_t symbolSize = 8);
@@ -36,7 +34,7 @@ markovEncode(const std::map<bitSet, bitSet>& mapping, const bitSet& data, size_t
 bitSet
 markovDecode(const std::map<bitSet, bitSet>& mapping, const bitSet& data, size_t symbolSize);
 
-unsigned int
+size_t
 hashValue(const bitSet& b);
 
 } // namespace BinaryUtils

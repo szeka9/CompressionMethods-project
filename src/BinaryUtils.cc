@@ -80,7 +80,6 @@ BinaryUtils::writeBinary(const std::string& fileName, const bitSet& bitStream, b
    size_t streamLength = size_t(std::ceil(float(bitStream.size()) / 8));
    char buffer[streamLength] = { 0 };
 
-   //#pragma omp parallel for
    for (size_t i = 0; i < streamLength * 8; i += 8)
       for (int j = 0; j < 8 && i + j < bitStream.size(); ++j)
          buffer[size_t(i / 8)] += bitStream[i + j] * pow(2, 7 - j);
@@ -97,7 +96,7 @@ BinaryUtils::writeBinary(const std::string& fileName, const bitSet& bitStream, b
 // The keys of the map are hash values of the symbols
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<unsigned int, std::tuple<bitSet, double>>
+std::map<size_t, std::tuple<bitSet, double>>
 BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
 {
    if (input.size() % symbolSize != 0) {
@@ -105,7 +104,7 @@ BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
                                "change the symbolsize to 8 or 16.");
    }
 
-   std::map<unsigned int, std::tuple<bitSet, double>> result;
+   std::map<size_t, std::tuple<bitSet, double>> result;
    std::tuple<bitSet, double> stats;
    bitSet symbolBuffer(symbolSize);
 
@@ -126,7 +125,7 @@ BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-BinaryUtils::getExpRandomBitStream(unsigned long int numBits, bool paddToBytes, size_t distribution)
+BinaryUtils::getExpRandomBitStream(size_t numBits, bool paddToBytes, size_t distribution)
 {
    const int intervals = 256; // number of intervals
 
@@ -136,25 +135,14 @@ BinaryUtils::getExpRandomBitStream(unsigned long int numBits, bool paddToBytes, 
    std::default_random_engine generator;
    std::exponential_distribution<double> rng(distribution);
 
-   unsigned long int streamLength = numBits;
+   size_t streamLength = numBits;
    if (paddToBytes && numBits % 8 != 0)
       streamLength += 8 - (numBits % 8);
    bitSet output(streamLength);
 
-   for (unsigned long int i = 0; i < streamLength; i += 8) {
-      double number = rng(generator);
-      if (number < 1.0) {
-         size_t current_num = size_t(intervals * number);
-         if (current_num == 0)
-            current_num = 1;
-         for (size_t j = 0; j < 8; j++) {
-            if (size_t(intervals * number) & (1 << (7 - j)))
-               output[i + j] = true;
-            else
-               output[i + j] = false;
-         }
-      }
-   }
+   for (size_t i = 0; i < streamLength; i += 8)
+      for (size_t j = 0; j < 8; j++)
+         output[i + j] = size_t(intervals * rng(generator)) & (1 << (7 - j));
 
    return output;
 }
@@ -283,7 +271,7 @@ BinaryUtils::markovDecode(const std::map<bitSet, bitSet>& mapping,
 // Hash binary data
 ///////////////////////////////////////////////////////////////////////////////
 
-unsigned int
+size_t
 BinaryUtils::hashValue(const bitSet& b)
 {
    return boost::hash_value(b);

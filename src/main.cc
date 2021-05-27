@@ -52,7 +52,7 @@ main(int argc, char** argv)
       // Generate or read binary #####################################
       auto t1 = std::chrono::high_resolution_clock::now();
       bitSet inputData = readBinary(inputName, 0);
-      // getExpRandomBitStream(100000000);
+      // bitSet inputData = getExpRandomBitStream(10000000);
       auto t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Reading/generating the input", t1, t2);
 
@@ -139,7 +139,7 @@ main(int argc, char** argv)
       float precompressedSize =
         h2.getTableSize() + encoded2.size() + markovMap.size() * 2 * DEF_SYMBOLSIZE;
 
-      printConsoleLine("File size (without serialization overhead)");
+      printConsoleLine("File size (without serialization)");
       std::cout << "File size: " << inputData.size() / 8000.0 << " KB" << std::endl
                 << "Compressed size (original) with encoding table: " << (normalSize) / 8000.0
                 << " KB" << std::endl
