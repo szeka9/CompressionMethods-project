@@ -5,6 +5,8 @@
 #include <math.h>
 #include <numeric>
 
+using namespace BinaryUtils;
+
 ///////////////////////////////////////////////////////////////////////////////
 // HuffmanTransducer::state
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,8 +47,8 @@ HuffmanTransducer::endState::endState(HuffmanTransducer* iContext,
 void
 HuffmanTransducer::endState::writeBuffer()
 {
-   BinaryUtils::bitSet currentSymbol = context->mSymbolMap.at(this);
-   for (boost::dynamic_bitset<>::size_type i = 0; i < currentSymbol.size(); ++i)
+   bitSet currentSymbol = context->mSymbolMap.at(this);
+   for (size_t i = 0; i < currentSymbol.size(); ++i)
       context->mBuffer.push_back(currentSymbol[i]);
 }
 
@@ -68,15 +70,14 @@ HuffmanTransducer::endState::forward(bool b)
 // HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(
-  std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> iSymbolMap)
+HuffmanTransducer::HuffmanTransducer(std::map<unsigned int, std::tuple<bitSet, double>> iSymbolMap)
 {
    mRootState = new state();
    mCurrentState = mRootState;
 
    // Process the symbol map (create end states)
    std::multimap<double, state*> grouppingMap;
-   std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>>::iterator it;
+   std::map<unsigned int, std::tuple<bitSet, double>>::iterator it;
 
    for (it = iSymbolMap.begin(); it != iSymbolMap.end(); ++it) {
       endState* s = new endState(this, mRootState, mRootState);
@@ -104,7 +105,7 @@ HuffmanTransducer::HuffmanTransducer(
    }
 
    // Assign Huffman codes to the symbols by traversing the tree
-   BinaryUtils::bitSet currentCode;
+   bitSet currentCode;
    state* prevState = mRootState;
 
    while (!(mRootState->mVisited)) {
@@ -155,40 +156,40 @@ HuffmanTransducer::HuffmanTransducer(
 // encodeSymbol
 ///////////////////////////////////////////////////////////////////////////////
 
-BinaryUtils::bitSet
-HuffmanTransducer::encodeSymbol(const BinaryUtils::bitSet& b) const
+bitSet
+HuffmanTransducer::encodeSymbol(const bitSet& b) const
 {
-   // if (mEndStates.at(BinaryUtils::hashValue(b)) != nullptr)
-   return mEndStates.at(BinaryUtils::hashValue(b))->encoded;
+   // if (mEndStates.at(hashValue(b)) != nullptr)
+   return mEndStates.at(hashValue(b))->encoded;
    // else
-   // throw "Null pointer in the end states!";
+   // throw std::runtime_error("Null pointer in the end states!");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // encode
 ///////////////////////////////////////////////////////////////////////////////
 
-BinaryUtils::bitSet
-HuffmanTransducer::encode(const BinaryUtils::bitSet& chunk, size_t symbolSize)
+bitSet
+HuffmanTransducer::encode(const bitSet& chunk, size_t symbolSize)
 {
-   BinaryUtils::bitSet output;
-   BinaryUtils::bitSet buffer(symbolSize);
+   bitSet output;
+   bitSet currentSymbol(symbolSize);
    mCurrentState = mRootState;
 
    for (size_t i = 0; i < chunk.size(); i += symbolSize) {
 
       for (size_t j = 0; j < symbolSize; ++j) {
-         buffer[j] = chunk[j + i];
+         currentSymbol[j] = chunk[j + i];
       }
 
-      BinaryUtils::bitSet encoded = encodeSymbol(buffer);
+      bitSet encoded = encodeSymbol(currentSymbol);
 
-      for (boost::dynamic_bitset<>::size_type j = 0; j < encoded.size(); ++j) {
+      for (size_t j = 0; j < encoded.size(); ++j) {
          output.push_back(encoded[j]);
       }
 
       /*if (mCurrentState != mRootState) {
-         throw "Did not return to root state!";
+         throw std::runtime_error("Did not return to root state!");
       }*/
    }
    return output;
@@ -209,9 +210,9 @@ HuffmanTransducer::decodeChangeState(bool b)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-HuffmanTransducer::decode(const BinaryUtils::bitSet& chunk)
+HuffmanTransducer::decode(const bitSet& chunk)
 {
-   for (boost::dynamic_bitset<>::size_type i = 0; i < chunk.size(); ++i)
+   for (size_t i = 0; i < chunk.size(); ++i)
       decodeChangeState(chunk[i]);
    decodeChangeState(0); // write buffer with last bit
 }
@@ -221,7 +222,7 @@ HuffmanTransducer::decode(const BinaryUtils::bitSet& chunk)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-HuffmanTransducer::moveBuffer(BinaryUtils::bitSet& output)
+HuffmanTransducer::moveBuffer(bitSet& output)
 {
    output = std::move(mBuffer);
    mBuffer.clear();
@@ -252,17 +253,17 @@ HuffmanTransducer::getAvgCodeLength() const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// getRepresentationSize
+// getTableSize
 ///////////////////////////////////////////////////////////////////////////////
 
 unsigned int
-HuffmanTransducer::getRepresentationSize()
+HuffmanTransducer::getTableSize()
 {
    return std::accumulate(
      mEndStates.begin(),
      mEndStates.end(),
      0,
-     [](int value, std::unordered_map<unsigned int, endState*>::value_type& p) {
-        return value + p.second->encoded.size();
+     [&](int value, std::unordered_map<unsigned int, endState*>::value_type& p) {
+        return value + p.second->encoded.size() + mSymbolMap.at(p.second).size();
      });
 }

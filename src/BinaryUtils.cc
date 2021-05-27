@@ -24,11 +24,13 @@ hash_value(const boost::dynamic_bitset<B, A>& a)
 #include <random>
 #include <string>
 
+using namespace BinaryUtils;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Read binary from file
 ///////////////////////////////////////////////////////////////////////////////
 
-BinaryUtils::bitSet
+bitSet
 BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
 {
    struct stat results;
@@ -40,7 +42,7 @@ BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
       throw std::runtime_error("An error has occured while reading the file.\n");
    }
 
-   BinaryUtils::bitSet outputStream(numBytes * 8);
+   bitSet outputStream(numBytes * 8);
    char buffer[numBytes];
 
    std::ifstream in{ fileName, std::ifstream::binary };
@@ -68,9 +70,7 @@ BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-BinaryUtils::writeBinary(const std::string& fileName,
-                         const BinaryUtils::bitSet& bitStream,
-                         bool paddToBytes)
+BinaryUtils::writeBinary(const std::string& fileName, const bitSet& bitStream, bool paddToBytes)
 {
    if (bitStream.size() % 8 != 0 && !paddToBytes) {
       throw std::runtime_error("Inappropriate length for a stream of bytes!");
@@ -97,17 +97,17 @@ BinaryUtils::writeBinary(const std::string& fileName,
 // The keys of the map are hash values of the symbols
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>>
-BinaryUtils::getStatistics(BinaryUtils::bitSet input, size_t symbolSize)
+std::map<unsigned int, std::tuple<bitSet, double>>
+BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
 {
    if (input.size() % symbolSize != 0) {
       throw std::runtime_error("Symbolsize does not correspond to the input size! You may need to "
                                "change the symbolsize to 8 or 16.");
    }
 
-   std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> result;
-   std::tuple<BinaryUtils::bitSet, double> stats;
-   BinaryUtils::bitSet symbolBuffer(symbolSize);
+   std::map<unsigned int, std::tuple<bitSet, double>> result;
+   std::tuple<bitSet, double> stats;
+   bitSet symbolBuffer(symbolSize);
 
    for (boost::dynamic_bitset<>::size_type i = 0; i < input.size(); i += symbolSize) {
       symbolBuffer.clear();
@@ -125,7 +125,7 @@ BinaryUtils::getStatistics(BinaryUtils::bitSet input, size_t symbolSize)
 // Get random binary data in exponential distribution
 ///////////////////////////////////////////////////////////////////////////////
 
-BinaryUtils::bitSet
+bitSet
 BinaryUtils::getExpRandomBitStream(unsigned long int numBits, bool paddToBytes, size_t distribution)
 {
    const int intervals = 256; // number of intervals
@@ -139,7 +139,7 @@ BinaryUtils::getExpRandomBitStream(unsigned long int numBits, bool paddToBytes, 
    unsigned long int streamLength = numBits;
    if (paddToBytes && numBits % 8 != 0)
       streamLength += 8 - (numBits % 8);
-   BinaryUtils::bitSet output(streamLength);
+   bitSet output(streamLength);
 
    for (unsigned long int i = 0; i < streamLength; i += 8) {
       double number = rng(generator);
@@ -166,12 +166,12 @@ BinaryUtils::getExpRandomBitStream(unsigned long int numBits, bool paddToBytes, 
 // The inner map contains the possible state transitions with frequencies.
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<BinaryUtils::bitSet, std::map<BinaryUtils::bitSet, float>>
-BinaryUtils::computeMarkovChain(const BinaryUtils::bitSet& b, size_t symbolSize)
+std::map<bitSet, std::map<bitSet, float>>
+BinaryUtils::computeMarkovChain(const bitSet& b, size_t symbolSize)
 {
-   std::map<BinaryUtils::bitSet, std::map<BinaryUtils::bitSet, float>> result;
-   BinaryUtils::bitSet previousSymbol(symbolSize);
-   BinaryUtils::bitSet currentSymbol(symbolSize);
+   std::map<bitSet, std::map<bitSet, float>> result;
+   bitSet previousSymbol(symbolSize);
+   bitSet currentSymbol(symbolSize);
 
    for (size_t j = 0; j < symbolSize && j < b.size(); ++j)
       previousSymbol[j] = b[j];
@@ -180,34 +180,13 @@ BinaryUtils::computeMarkovChain(const BinaryUtils::bitSet& b, size_t symbolSize)
       for (size_t j = 0; j < symbolSize; ++j)
          currentSymbol[j] = b[i + j];
 
-      std::map<BinaryUtils::bitSet, float> nextStates;
+      std::map<bitSet, float> nextStates;
       result.emplace(previousSymbol, nextStates);
       result.at(previousSymbol).emplace(currentSymbol, 0);
       result.at(previousSymbol).at(currentSymbol) += 1;
 
       previousSymbol = currentSymbol;
    }
-
-   // Print result
-   /*
-   for (auto it = result.begin(); it != result.end(); ++it) {
-      auto symbol = it->first;
-      for (size_t i = 0; i < symbol.size(); ++i) {
-         std::cout << symbol[i];
-      }
-      std::cout << std::endl;
-      auto nextStates = it->second;
-
-      for (auto it2 = nextStates.begin(); it2 != nextStates.end(); ++it2) {
-         symbol = it2->first;
-         std::cout << "     ";
-         for (size_t i = 0; i < symbol.size(); ++i) {
-            std::cout << symbol[i];
-         }
-         std::cout << " | " << it2->second;
-         std::cout << std::endl;
-      }
-   }*/
 
    return result;
 }
@@ -217,16 +196,15 @@ BinaryUtils::computeMarkovChain(const BinaryUtils::bitSet& b, size_t symbolSize)
 // Example: key=0001, value=0110 means that the next symbol to 0001 is 0110.
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<BinaryUtils::bitSet, BinaryUtils::bitSet>
-BinaryUtils::getMarkovEncodingMap(
-  const std::map<BinaryUtils::bitSet, std::map<BinaryUtils::bitSet, float>>& markovChain,
-  float probabiltyThreshold)
+std::map<bitSet, bitSet>
+BinaryUtils::getMarkovEncodingMap(const std::map<bitSet, std::map<bitSet, float>>& markovChain,
+                                  float probabiltyThreshold)
 {
-   std::map<BinaryUtils::bitSet, BinaryUtils::bitSet> result;
+   std::map<bitSet, bitSet> result;
    for (auto it = markovChain.begin(); it != markovChain.end(); ++it) {
       auto currentSymbol = it->first;
 
-      BinaryUtils::bitSet candidate;
+      bitSet candidate;
       float currentFrequency = 0;
       float sum = 0;
 
@@ -241,24 +219,8 @@ BinaryUtils::getMarkovEncodingMap(
       }
       if ((currentFrequency / sum) > probabiltyThreshold) {
          result.emplace(currentSymbol, candidate);
-      } else {
-         // result.emplace(currentSymbol, currentSymbol);
       }
    }
-
-   // Print result
-   /*for (auto it = result.begin(); it != result.end(); ++it) {
-      auto first = it->first;
-      for (size_t i = 0; i < first.size(); ++i) {
-         std::cout << first[i];
-      }
-      std::cout << " ";
-      auto second = it->second;
-      for (size_t i = 0; i < second.size(); ++i) {
-         std::cout << second[i];
-      }
-      std::cout << std::endl;
-   }*/
 
    return result;
 }
@@ -266,14 +228,14 @@ BinaryUtils::getMarkovEncodingMap(
 ///////////////////////////////////////////////////////////////////////////////
 // Encode data using the encoding map using XOR
 ///////////////////////////////////////////////////////////////////////////////
-BinaryUtils::bitSet
-BinaryUtils::markovEncode(const std::map<BinaryUtils::bitSet, BinaryUtils::bitSet>& mapping,
-                          const BinaryUtils::bitSet& data,
+bitSet
+BinaryUtils::markovEncode(const std::map<bitSet, bitSet>& mapping,
+                          const bitSet& data,
                           size_t symbolSize)
 {
-   BinaryUtils::bitSet result(data.size());
-   BinaryUtils::bitSet currentSymbol(symbolSize);
-   BinaryUtils::bitSet mapped(symbolSize);
+   bitSet result(data.size());
+   bitSet currentSymbol(symbolSize);
+   bitSet mapped(symbolSize);
 
    for (size_t i = 0; i < data.size(); i += symbolSize) {
       for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j) {
@@ -284,7 +246,7 @@ BinaryUtils::markovEncode(const std::map<BinaryUtils::bitSet, BinaryUtils::bitSe
       if (mapping.find(currentSymbol) != mapping.end()) {
          mapped = mapping.at(currentSymbol);
       } else {
-         mapped = BinaryUtils::bitSet(symbolSize);
+         mapped = bitSet(symbolSize);
       }
    }
    return result;
@@ -293,14 +255,14 @@ BinaryUtils::markovEncode(const std::map<BinaryUtils::bitSet, BinaryUtils::bitSe
 ///////////////////////////////////////////////////////////////////////////////
 // Decode data using the encoding map using XOR
 ///////////////////////////////////////////////////////////////////////////////
-BinaryUtils::bitSet
-BinaryUtils::markovDecode(const std::map<BinaryUtils::bitSet, BinaryUtils::bitSet>& mapping,
-                          const BinaryUtils::bitSet& data,
+bitSet
+BinaryUtils::markovDecode(const std::map<bitSet, bitSet>& mapping,
+                          const bitSet& data,
                           size_t symbolSize)
 {
-   BinaryUtils::bitSet result(data.size());
-   BinaryUtils::bitSet currentSymbol(symbolSize);
-   BinaryUtils::bitSet mapped(symbolSize);
+   bitSet result(data.size());
+   bitSet currentSymbol(symbolSize);
+   bitSet mapped(symbolSize);
 
    for (size_t i = 0; i < data.size(); i += symbolSize) {
       for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j) {
@@ -311,7 +273,7 @@ BinaryUtils::markovDecode(const std::map<BinaryUtils::bitSet, BinaryUtils::bitSe
       if (mapping.find(currentSymbol) != mapping.end()) {
          mapped = mapping.at(currentSymbol);
       } else {
-         mapped = BinaryUtils::bitSet(symbolSize);
+         mapped = bitSet(symbolSize);
       }
    }
    return result;
@@ -322,7 +284,7 @@ BinaryUtils::markovDecode(const std::map<BinaryUtils::bitSet, BinaryUtils::bitSe
 ///////////////////////////////////////////////////////////////////////////////
 
 unsigned int
-BinaryUtils::hashValue(const BinaryUtils::bitSet& b)
+BinaryUtils::hashValue(const bitSet& b)
 {
    return boost::hash_value(b);
 }

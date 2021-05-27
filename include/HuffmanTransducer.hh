@@ -3,8 +3,11 @@
 
 #include "BinaryUtils.hh"
 
+#include <boost/dynamic_bitset.hpp>
 #include <map>
 #include <unordered_map>
+
+typedef boost::dynamic_bitset<> bitSet;
 
 class HuffmanTransducer
 {
@@ -33,20 +36,19 @@ class HuffmanTransducer
       state* next(bool) override;
       state* forward(bool) override;
 
-      BinaryUtils::bitSet encoded;
+      bitSet encoded;
       HuffmanTransducer* context;
    };
 
  public:
-   HuffmanTransducer(std::map<unsigned int, std::tuple<BinaryUtils::bitSet, double>> iSymbolMap);
+   HuffmanTransducer(std::map<unsigned int, std::tuple<bitSet, double>> iSymbolMap);
 
-   BinaryUtils::bitSet encodeSymbol(const BinaryUtils::bitSet& b) const;
-   BinaryUtils::bitSet encode(const BinaryUtils::bitSet& chunk, size_t symbolSize);
+   bitSet encodeSymbol(const bitSet& b) const;
+   bitSet encode(const bitSet& chunk, size_t symbolSize);
 
-   void decode(const BinaryUtils::bitSet& chunk);
-   void moveBuffer(BinaryUtils::bitSet& output);
-   unsigned int getRepresentationSize();
-   // void printEncodingTable() const;
+   void decode(const bitSet& chunk);
+   void moveBuffer(bitSet& output);
+   unsigned int getTableSize();
    double getEntropy() const;
    double getAvgCodeLength() const;
 
@@ -58,8 +60,8 @@ class HuffmanTransducer
    state* mCurrentState;
    std::unordered_map<unsigned int, endState*> mEndStates;
    std::unordered_map<endState*, double> mCodeProbability;
-   std::unordered_map<state*, BinaryUtils::bitSet> mSymbolMap;
-   BinaryUtils::bitSet mBuffer;
+   std::unordered_map<state*, bitSet> mSymbolMap;
+   bitSet mBuffer;
 };
 
 #endif // HUFFMANTRANSDUCER_HH
