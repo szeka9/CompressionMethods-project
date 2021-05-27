@@ -16,7 +16,7 @@ The main idea of this project is a precompressor based Markov chains. I original
 
 The algorithm was mostly tested on network traffic data (.pcap), and in some cases there is noticable difference in the compression.
 
-Please note, that the current implementation does not support exporting the compressed data but information about the compression is displayed in the console (see also: Example output).
+Please note, that the current implementation does not support serializing the compressed data but information about the compression is displayed in the console (see also: Example output).
 
 ## How to run
 
@@ -31,7 +31,8 @@ Boost libraries are required to compile the code.
 
 ## Example output
 
-![kép](https://user-images.githubusercontent.com/28252625/119416489-05c87f00-bcf4-11eb-9b19-ea29d81e853b.png)
+![kép](https://user-images.githubusercontent.com/28252625/119855317-16eed700-bf12-11eb-980a-a24ce2e121cb.png)
+
 
 
 
