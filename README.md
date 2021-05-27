@@ -1,5 +1,4 @@
-# HuffmanTransducer
-Compression methods project repository
+# Compression methods project repository
 
 ## Description
 <b>The implementation contains:</b>
