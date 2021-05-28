@@ -44,9 +44,9 @@ class HuffmanTransducer
    HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap);
 
    bitSet encodeSymbol(const bitSet& b) const;
-   bitSet encode(const bitSet& chunk, size_t symbolSize);
+   bitSet encode(const bitSet& data, size_t symbolSize);
 
-   void decode(const bitSet& chunk);
+   void decode(const bitSet& data);
    void moveBuffer(bitSet& output);
    size_t getTableSize();
    double getEntropy() const;

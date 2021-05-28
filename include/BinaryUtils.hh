@@ -16,13 +16,13 @@ void
 writeBinary(const std::string&, const bitSet&, bool paddToBytes);
 
 std::map<size_t, std::tuple<bitSet, double>>
-getStatistics(bitSet input, size_t symbolSize = 8);
+getStatistics(bitSet data, size_t symbolSize = 8);
 
 bitSet
-getExpRandomBitStream(size_t numBits, bool paddToBytes = false, size_t distribution = 20);
+getExpRandomData(size_t numBits, bool paddToBytes = false, size_t distribution = 20);
 
 std::map<bitSet, std::map<bitSet, float>>
-computeMarkovChain(const bitSet& b, size_t symbolSize = 8);
+computeMarkovChain(const bitSet& data, size_t symbolSize = 8);
 
 std::map<bitSet, bitSet>
 getMarkovEncodingMap(const std::map<bitSet, std::map<bitSet, float>>& markovChain,

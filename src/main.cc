@@ -133,7 +133,7 @@ main(int argc, char** argv)
       printDurationMessage("Huffman decoding (precompressed)", t1, t2);
 
       // ############################################################
-      // writeBinary(outputName, encoded, true);
+      // writeBinary(outputName, markovEncoded, true);
 
       float normalSize = h.getTableSize() + encoded.size();
       float precompressedSize =

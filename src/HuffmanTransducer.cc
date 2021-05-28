@@ -170,16 +170,16 @@ HuffmanTransducer::encodeSymbol(const bitSet& b) const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-HuffmanTransducer::encode(const bitSet& chunk, size_t symbolSize)
+HuffmanTransducer::encode(const bitSet& data, size_t symbolSize)
 {
    bitSet output;
    bitSet currentSymbol(symbolSize);
    mCurrentState = mRootState;
 
-   for (size_t i = 0; i < chunk.size(); i += symbolSize) {
+   for (size_t i = 0; i < data.size(); i += symbolSize) {
 
       for (size_t j = 0; j < symbolSize; ++j) {
-         currentSymbol[j] = chunk[j + i];
+         currentSymbol[j] = data[j + i];
       }
 
       bitSet encoded = encodeSymbol(currentSymbol);
@@ -210,10 +210,10 @@ HuffmanTransducer::decodeChangeState(bool b)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-HuffmanTransducer::decode(const bitSet& chunk)
+HuffmanTransducer::decode(const bitSet& data)
 {
-   for (size_t i = 0; i < chunk.size(); ++i)
-      decodeChangeState(chunk[i]);
+   for (size_t i = 0; i < data.size(); ++i)
+      decodeChangeState(data[i]);
    decodeChangeState(0); // write buffer with last bit
 }
 

@@ -33,36 +33,26 @@ using namespace BinaryUtils;
 bitSet
 BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
 {
-   struct stat results;
-   size_t numBytes = 0;
-   if (stat(fileName.c_str(), &results) == 0) {
-      numBytes = results.st_size;
-      std::cout << "File size: " << numBytes << " bytes." << std::endl;
-   } else {
-      throw std::runtime_error("An error has occured while reading the file.\n");
-   }
-
-   bitSet outputStream(numBytes * 8);
-   char buffer[numBytes];
-
-   std::ifstream in{ fileName, std::ifstream::binary };
-   in.read(buffer, sizeof(buffer));
-
-   if (!in) {
-      throw std::runtime_error("An error has occured while reading the bit stream!\n");
-   }
-
-   for (size_t i = 0; i < numBytes; i++) {
+   // https://www.cplusplus.com/reference/fstream/ifstream/rdbuf/
+   std::ifstream ifs{ fileName, std::ifstream::binary };
+   std::filebuf* pbuf = ifs.rdbuf();
+   std::size_t size = pbuf->pubseekoff(0, ifs.end, ifs.in);
+   pbuf->pubseekpos(0, ifs.in);
+   char* buffer = new char[size];
+   pbuf->sgetn(buffer, size);
+   ifs.close();
+   //----------------------------------------------------------
+   std::cout << size << std::endl;
+   bitSet output(size * 8);
+   for (size_t i = 0; i < size; i++) {
       for (size_t j = 0; j < 8; j++) {
-         buffer[i] & (1 << (7 - j)) ? outputStream[i * 8 + j] = true
-                                    : outputStream[i * 8 + j] = false;
+         buffer[i] & (1 << (7 - j)) ? output[i * 8 + j] = true : output[i * 8 + j] = false;
       }
    }
 
-   if (0 < maxSize && maxSize < outputStream.size())
-      outputStream.resize(maxSize);
-
-   return outputStream;
+   if (0 < maxSize && maxSize < output.size())
+      output.resize(maxSize);
+   return output;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -70,19 +60,19 @@ BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-BinaryUtils::writeBinary(const std::string& fileName, const bitSet& bitStream, bool paddToBytes)
+BinaryUtils::writeBinary(const std::string& fileName, const bitSet& data, bool paddToBytes)
 {
-   if (bitStream.size() % 8 != 0 && !paddToBytes) {
+   if (data.size() % 8 != 0 && !paddToBytes) {
       throw std::runtime_error("Inappropriate length for a stream of bytes!");
    }
    std::ofstream out{ fileName };
 
-   size_t streamLength = size_t(std::ceil(float(bitStream.size()) / 8));
-   char buffer[streamLength] = { 0 };
+   size_t length = size_t(std::ceil(float(data.size()) / 8));
+   char buffer[length] = { 0 };
 
-   for (size_t i = 0; i < streamLength * 8; i += 8)
-      for (int j = 0; j < 8 && i + j < bitStream.size(); ++j)
-         buffer[size_t(i / 8)] += bitStream[i + j] * pow(2, 7 - j);
+   for (size_t i = 0; i < length * 8; i += 8)
+      for (int j = 0; j < 8 && i + j < data.size(); ++j)
+         buffer[size_t(i / 8)] += data[i + j] * pow(2, 7 - j);
 
    out.write(buffer, sizeof(buffer));
 
@@ -97,10 +87,10 @@ BinaryUtils::writeBinary(const std::string& fileName, const bitSet& bitStream, b
 ///////////////////////////////////////////////////////////////////////////////
 
 std::map<size_t, std::tuple<bitSet, double>>
-BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
+BinaryUtils::getStatistics(bitSet data, size_t symbolSize)
 {
-   if (input.size() % symbolSize != 0) {
-      throw std::runtime_error("Symbolsize does not correspond to the input size! You may need to "
+   if (data.size() % symbolSize != 0) {
+      throw std::runtime_error("Symbolsize does not correspond to the data size! You may need to "
                                "change the symbolsize to 8 or 16.");
    }
 
@@ -108,14 +98,13 @@ BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
    std::tuple<bitSet, double> stats;
    bitSet symbolBuffer(symbolSize);
 
-   for (boost::dynamic_bitset<>::size_type i = 0; i < input.size(); i += symbolSize) {
+   for (boost::dynamic_bitset<>::size_type i = 0; i < data.size(); i += symbolSize) {
       symbolBuffer.clear();
       for (boost::dynamic_bitset<>::size_type j = i; j < i + symbolSize; ++j) {
-         symbolBuffer.push_back(input[j]);
+         symbolBuffer.push_back(data[j]);
       }
       std::get<0>(result[BinaryUtils::hashValue(symbolBuffer)]) = symbolBuffer;
-      std::get<1>(result[BinaryUtils::hashValue(symbolBuffer)]) +=
-        1.0 / (input.size() / symbolSize);
+      std::get<1>(result[BinaryUtils::hashValue(symbolBuffer)]) += 1.0 / (data.size() / symbolSize);
    }
    return result;
 }
@@ -125,7 +114,7 @@ BinaryUtils::getStatistics(bitSet input, size_t symbolSize)
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-BinaryUtils::getExpRandomBitStream(size_t numBits, bool paddToBytes, size_t distribution)
+BinaryUtils::getExpRandomData(size_t numBits, bool paddToBytes, size_t distribution)
 {
    const int intervals = 256; // number of intervals
 
@@ -135,12 +124,12 @@ BinaryUtils::getExpRandomBitStream(size_t numBits, bool paddToBytes, size_t dist
    std::default_random_engine generator;
    std::exponential_distribution<double> rng(distribution);
 
-   size_t streamLength = numBits;
+   size_t length = numBits;
    if (paddToBytes && numBits % 8 != 0)
-      streamLength += 8 - (numBits % 8);
-   bitSet output(streamLength);
+      length += 8 - (numBits % 8);
+   bitSet output(length);
 
-   for (size_t i = 0; i < streamLength; i += 8)
+   for (size_t i = 0; i < length; i += 8)
       for (size_t j = 0; j < 8; j++)
          output[i + j] = size_t(intervals * rng(generator)) & (1 << (7 - j));
 
@@ -155,18 +144,18 @@ BinaryUtils::getExpRandomBitStream(size_t numBits, bool paddToBytes, size_t dist
 ///////////////////////////////////////////////////////////////////////////////
 
 std::map<bitSet, std::map<bitSet, float>>
-BinaryUtils::computeMarkovChain(const bitSet& b, size_t symbolSize)
+BinaryUtils::computeMarkovChain(const bitSet& data, size_t symbolSize)
 {
    std::map<bitSet, std::map<bitSet, float>> result;
    bitSet previousSymbol(symbolSize);
    bitSet currentSymbol(symbolSize);
 
-   for (size_t j = 0; j < symbolSize && j < b.size(); ++j)
-      previousSymbol[j] = b[j];
+   for (size_t j = 0; j < symbolSize && j < data.size(); ++j)
+      previousSymbol[j] = data[j];
 
-   for (size_t i = 0; i < b.size(); i += symbolSize) {
+   for (size_t i = 0; i < data.size(); i += symbolSize) {
       for (size_t j = 0; j < symbolSize; ++j)
-         currentSymbol[j] = b[i + j];
+         currentSymbol[j] = data[i + j];
 
       std::map<bitSet, float> nextStates;
       result.emplace(previousSymbol, nextStates);
