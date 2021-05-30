@@ -52,10 +52,11 @@ class HuffmanTransducer : public IEncoder
    // Inherited functions from IEncoder
    bitSet encode(const bitSet& data) override;
    bitSet decode(const bitSet& data) override;
+   bitSet serialize(const bitSet& data) override;
+   bitSet deSerialize(const bitSet& data) override;
+
    size_t getTableSize() const override;
    std::map<bitSet, bitSet> getEncodingMap() const override;
-   bitSet serialize(const bitSet& data) const override;
-   bitSet deSerialize(const bitSet& data) const override;
 
  private:
    void decodeChangeState(bool b);

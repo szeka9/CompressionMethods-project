@@ -290,7 +290,7 @@ HuffmanTransducer::getTableSize() const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-HuffmanTransducer::serialize(const bitSet& data) const
+HuffmanTransducer::serialize(const bitSet& data)
 {
    ;
 }
@@ -300,7 +300,7 @@ HuffmanTransducer::serialize(const bitSet& data) const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-HuffmanTransducer::deSerialize(const bitSet& data) const
+HuffmanTransducer::deSerialize(const bitSet& data)
 {
    ;
 }

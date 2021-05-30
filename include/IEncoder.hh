@@ -16,10 +16,11 @@ class IEncoder
    virtual ~IEncoder() {}
    virtual bitSet encode(const bitSet&) = 0;
    virtual bitSet decode(const bitSet&) = 0;
+   virtual bitSet serialize(const bitSet&) = 0;
+   virtual bitSet deSerialize(const bitSet&) = 0;
+
    virtual size_t getTableSize() const = 0;
    virtual std::map<bitSet, bitSet> getEncodingMap() const = 0;
-   virtual bitSet serialize(const bitSet&) const = 0;
-   virtual bitSet deSerialize(const bitSet&) const = 0;
 };
 
 #endif // IENCODER_HH

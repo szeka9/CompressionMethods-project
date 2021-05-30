@@ -4,10 +4,7 @@
 using namespace BinaryUtils;
 
 ///////////////////////////////////////////////////////////////////////////////
-// Generate probability map
-// Returns  map of symbols with consequtive states and frequencies.
-// The outer map contains all symbols.
-// The inner map contains the possible state transitions with frequencies.
+// MarkovEncoder
 ///////////////////////////////////////////////////////////////////////////////
 
 MarkovEncoder::MarkovEncoder(const bitSet& data,
@@ -112,7 +109,7 @@ MarkovEncoder::getEncodingMap() const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-MarkovEncoder::serialize(const bitSet& data) const
+MarkovEncoder::serialize(const bitSet& data)
 {
    ;
 }
@@ -122,13 +119,13 @@ MarkovEncoder::serialize(const bitSet& data) const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-MarkovEncoder::deSerialize(const bitSet& data) const
+MarkovEncoder::deSerialize(const bitSet& data)
 {
    ;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Encode data using the encoding map using XOR
+// Encode data using the encoding map
 ///////////////////////////////////////////////////////////////////////////////
 bitSet
 MarkovEncoder::encode(const bitSet& data)
@@ -173,7 +170,7 @@ MarkovEncoder::encode(const bitSet& data)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Decode data using the encoding map using XOR
+// Decode data using the encoding map
 ///////////////////////////////////////////////////////////////////////////////
 bitSet
 MarkovEncoder::decode(const bitSet& data)
