@@ -45,23 +45,25 @@ class HuffmanTransducer
 
    bitSet encodeSymbol(const bitSet& b) const;
    bitSet encode(const bitSet& data, size_t symbolSize);
-
    void decode(const bitSet& data);
    void moveBuffer(bitSet& output);
-   size_t getTableSize();
+
+   size_t getTableSize() const;
    double getEntropy() const;
    double getAvgCodeLength() const;
+   std::map<bitSet, bitSet> getEncodingMap() const;
 
  private:
    void decodeChangeState(bool b);
 
+   bitSet mBuffer;
    double mEntropy;
    state* mRootState;
    state* mCurrentState;
+
    std::unordered_map<size_t, endState*> mEndStates;
    std::unordered_map<endState*, double> mCodeProbability;
    std::unordered_map<state*, bitSet> mSymbolMap;
-   bitSet mBuffer;
 };
 
 #endif // HUFFMANTRANSDUCER_HH

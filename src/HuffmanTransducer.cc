@@ -257,13 +257,26 @@ HuffmanTransducer::getAvgCodeLength() const
 ///////////////////////////////////////////////////////////////////////////////
 
 size_t
-HuffmanTransducer::getTableSize()
+HuffmanTransducer::getTableSize() const
 {
-   return std::accumulate(mEndStates.begin(),
-                          mEndStates.end(),
-                          0,
-                          [&](int value, std::unordered_map<size_t, endState*>::value_type& p) {
-                             return value + p.second->encoded.size() +
-                                    mSymbolMap.at(p.second).size();
-                          });
+   return std::accumulate(
+     mEndStates.begin(),
+     mEndStates.end(),
+     0,
+     [&](int value, const std::unordered_map<size_t, endState*>::value_type& p) {
+        return value + p.second->encoded.size() + mSymbolMap.at(p.second).size();
+     });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// hasSymbol
+///////////////////////////////////////////////////////////////////////////////
+std::map<bitSet, bitSet>
+HuffmanTransducer::getEncodingMap() const
+{
+   std::map<bitSet, bitSet> result;
+   for (auto p : mEndStates) {
+      result.emplace(mSymbolMap.at(p.second), p.second->encoded);
+   }
+   return result;
 }

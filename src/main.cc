@@ -8,8 +8,8 @@
 
 using namespace BinaryUtils;
 
-#define DEF_SYMBOLSIZE 16             // Note: does not work for odd byte sizes
-#define DEF_PROBABILITY_THRESHOLD 0.4 // State transitions with >10% probability
+#define DEF_SYMBOLSIZE 8               // Note: does not work for odd byte sizes
+#define DEF_PROBABILITY_THRESHOLD 0.01 // State transitions with >10% probability
 
 void
 printDurationMessage(const std::string& what,
@@ -77,13 +77,16 @@ main(int argc, char** argv)
       auto markovChain = computeMarkovChain(inputData, DEF_SYMBOLSIZE);
       auto markovMap = getMarkovEncodingMap(markovChain, DEF_PROBABILITY_THRESHOLD);
 
+      bitSet unusedSymbol;
+      findUnusedSymbol(h.getEncodingMap(), unusedSymbol, DEF_SYMBOLSIZE);
+
       t1 = std::chrono::high_resolution_clock::now();
-      auto markovEncoded = markovEncode(markovMap, inputData, DEF_SYMBOLSIZE);
+      auto markovEncoded = markovEncode(markovMap, inputData, DEF_SYMBOLSIZE, unusedSymbol);
       t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Precompression using Markov chains", t1, t2);
 
       t1 = std::chrono::high_resolution_clock::now();
-      auto markovDecoded = markovDecode(markovMap, markovEncoded, DEF_SYMBOLSIZE);
+      auto markovDecoded = markovDecode(markovMap, markovEncoded, DEF_SYMBOLSIZE, unusedSymbol);
       t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Decompression using Markov chains", t1, t2);
 
@@ -157,7 +160,7 @@ main(int argc, char** argv)
 
       // Compare encoded and decoded data ###########################
       printConsoleLine();
-      auto markovDecoded_ = markovDecode(markovMap, decoded2, DEF_SYMBOLSIZE);
+      auto markovDecoded_ = markovDecode(markovMap, decoded2, DEF_SYMBOLSIZE, unusedSymbol);
       if (inputData != decoded || inputData != markovDecoded_) {
          std::cout << "Decoding is not successful!" << std::endl;
       } else {

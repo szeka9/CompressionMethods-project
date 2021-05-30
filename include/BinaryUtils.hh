@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <vector>
 
+class HuffmanTransducer;
+
 namespace BinaryUtils {
 typedef boost::dynamic_bitset<> bitSet;
 
@@ -14,6 +16,9 @@ bitSet
 readBinary(const std::string&, size_t);
 void
 writeBinary(const std::string&, const bitSet&, bool paddToBytes);
+
+bitSet
+convertToBitSet(size_t number, size_t numBits);
 
 std::map<size_t, std::tuple<bitSet, double>>
 getStatistics(bitSet data, size_t symbolSize = 8);
@@ -28,11 +33,20 @@ std::map<bitSet, bitSet>
 getMarkovEncodingMap(const std::map<bitSet, std::map<bitSet, float>>& markovChain,
                      float probabiltyThreshold);
 
-bitSet
-markovEncode(const std::map<bitSet, bitSet>& mapping, const bitSet& data, size_t symbolSize);
+void
+findUnusedSymbol(const std::map<bitSet, bitSet>& encodingMap, bitSet& result, size_t symbolSize);
 
 bitSet
-markovDecode(const std::map<bitSet, bitSet>& mapping, const bitSet& data, size_t symbolSize);
+markovEncode(const std::map<bitSet, bitSet>& mapping,
+             const bitSet& data,
+             size_t symbolSize,
+             const bitSet& substitutor = bitSet());
+
+bitSet
+markovDecode(const std::map<bitSet, bitSet>& mapping,
+             const bitSet& data,
+             size_t symbolSize,
+             const bitSet& substitutor = bitSet());
 
 size_t
 hashValue(const bitSet& b);

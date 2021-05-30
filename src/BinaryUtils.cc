@@ -1,6 +1,7 @@
 #define BOOST_DYNAMIC_BITSET_DONT_USE_FRIENDS
 
 #include "BinaryUtils.hh"
+#include "HuffmanTransducer.hh"
 
 #include <boost/functional/hash.hpp>
 namespace boost {
@@ -82,6 +83,25 @@ BinaryUtils::writeBinary(const std::string& fileName, const bitSet& data, bool p
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Convert to BitSet with padding
+///////////////////////////////////////////////////////////////////////////////
+BinaryUtils::bitSet
+BinaryUtils::convertToBitSet(size_t number, size_t numBits)
+{
+   size_t size = std::ceil(log2(number));
+   size_t finalSize = size > numBits ? size : numBits;
+   BinaryUtils::bitSet result(finalSize);
+
+   int pos = finalSize - 1;
+   for (size_t i = number % 2; number > 0 && pos >= 0; number /= 2, i = number % 2) {
+      i ? result[pos] = 1 : result[pos] = 0;
+      --pos;
+   }
+
+   return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Get statistics of binary data
 // The keys of the map are hash values of the symbols
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,8 +110,9 @@ std::map<size_t, std::tuple<bitSet, double>>
 BinaryUtils::getStatistics(bitSet data, size_t symbolSize)
 {
    if (data.size() % symbolSize != 0) {
-      throw std::runtime_error("Symbolsize does not correspond to the data size! You may need to "
-                               "change the symbolsize to 8 or 16.");
+      throw std::runtime_error(
+        "The symbolsize does not correspond to the data size! You may need to "
+        "change the symbolsize to 8 or 16.");
    }
 
    std::map<size_t, std::tuple<bitSet, double>> result;
@@ -203,29 +224,71 @@ BinaryUtils::getMarkovEncodingMap(const std::map<bitSet, std::map<bitSet, float>
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Find unused symbol
+// The unused symbol can be used as a unusedSymbol
+///////////////////////////////////////////////////////////////////////////////
+
+void
+BinaryUtils::findUnusedSymbol(const std::map<bitSet, bitSet>& encodingMap,
+                              bitSet& result,
+                              size_t symbolSize)
+{
+   bitSet current(symbolSize);
+   size_t n = 1;
+   while (encodingMap.find(current) != encodingMap.end() && current.size() >= log2(n)) {
+      current = BinaryUtils::convertToBitSet(n, current.size());
+      ++n;
+   }
+   if (encodingMap.find(current) == encodingMap.end()) {
+      result = bitSet(current);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Encode data using the encoding map using XOR
 ///////////////////////////////////////////////////////////////////////////////
 bitSet
 BinaryUtils::markovEncode(const std::map<bitSet, bitSet>& mapping,
                           const bitSet& data,
-                          size_t symbolSize)
+                          size_t symbolSize,
+                          const bitSet& unusedSymbol)
 {
    bitSet result(data.size());
+
    bitSet currentSymbol(symbolSize);
    bitSet mapped(symbolSize);
 
-   for (size_t i = 0; i < data.size(); i += symbolSize) {
-      for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j) {
-         currentSymbol[j] = data[j + i];
-         result[i + j] = data[j + i] ^ mapped[j];
+   if (!unusedSymbol.size())
+      for (size_t i = 0; i < data.size(); i += symbolSize) {
+         for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j) {
+            currentSymbol[j] = data[j + i];
+            result[i + j] = data[i + j] ^ mapped[j];
+         }
+
+         if (mapping.find(currentSymbol) != mapping.end())
+            mapped = mapping.at(currentSymbol);
+         else
+            mapped = bitSet(symbolSize);
       }
 
-      if (mapping.find(currentSymbol) != mapping.end()) {
-         mapped = mapping.at(currentSymbol);
-      } else {
-         mapped = bitSet(symbolSize);
+   else
+      for (size_t i = 0; i < data.size(); i += symbolSize) {
+         for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j)
+            currentSymbol[j] = data[j + i];
+
+         if (i == 0 || currentSymbol != mapped)
+            for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j)
+               result[i + j] = data[i + j];
+         else
+            for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j)
+               result[i + j] = unusedSymbol[j];
+
+         if (mapping.find(currentSymbol) != mapping.end())
+            mapped = mapping.at(currentSymbol);
+         else
+            mapped = bitSet(symbolSize);
       }
-   }
+
    return result;
 }
 
@@ -235,24 +298,45 @@ BinaryUtils::markovEncode(const std::map<bitSet, bitSet>& mapping,
 bitSet
 BinaryUtils::markovDecode(const std::map<bitSet, bitSet>& mapping,
                           const bitSet& data,
-                          size_t symbolSize)
+                          size_t symbolSize,
+                          const bitSet& unusedSymbol)
 {
    bitSet result(data.size());
+
    bitSet currentSymbol(symbolSize);
    bitSet mapped(symbolSize);
 
-   for (size_t i = 0; i < data.size(); i += symbolSize) {
-      for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j) {
-         currentSymbol[j] = data[j + i] ^ mapped[j];
-         result[i + j] = currentSymbol[j];
+   if (!unusedSymbol.size())
+      for (size_t i = 0; i < data.size(); i += symbolSize) {
+         for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j) {
+            currentSymbol[j] = data[j + i] ^ mapped[j];
+            result[i + j] = currentSymbol[j];
+         }
+
+         if (mapping.find(currentSymbol) != mapping.end())
+            mapped = mapping.at(currentSymbol);
+         else
+            mapped = bitSet(symbolSize);
       }
 
-      if (mapping.find(currentSymbol) != mapping.end()) {
-         mapped = mapping.at(currentSymbol);
-      } else {
-         mapped = bitSet(symbolSize);
+   else
+      for (size_t i = 0; i < data.size(); i += symbolSize) {
+
+         for (size_t j = 0; j < symbolSize && j + i < data.size(); ++j)
+            currentSymbol[j] = data[j + i];
+
+         if (i != 0 && currentSymbol == unusedSymbol)
+            currentSymbol = mapped;
+
+         for (size_t j = 0; j < symbolSize && j + i < result.size(); ++j)
+            result[i + j] = currentSymbol[j];
+
+         if (mapping.find(currentSymbol) != mapping.end())
+            mapped = mapping.at(currentSymbol);
+         else
+            mapped = bitSet(symbolSize);
       }
-   }
+
    return result;
 }
 
