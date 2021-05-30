@@ -20,6 +20,14 @@ HuffmanTransducer::state::state(HuffmanTransducer::state* iZero, HuffmanTransduc
    stateTransitions[1] = iOne;
 }
 
+HuffmanTransducer::state::~state()
+{
+   if (stateTransitions[0] != nullptr)
+      delete stateTransitions[0];
+   if (stateTransitions[1] != nullptr)
+      delete stateTransitions[1];
+}
+
 HuffmanTransducer::state*
 HuffmanTransducer::state::next(bool b)
 {
@@ -42,6 +50,12 @@ HuffmanTransducer::endState::endState(HuffmanTransducer* iContext,
   : state(iZero, iZero)
 {
    context = iContext;
+}
+
+HuffmanTransducer::endState::~endState()
+{
+   stateTransitions[0] = nullptr;
+   stateTransitions[1] = nullptr;
 }
 
 void
@@ -70,10 +84,12 @@ HuffmanTransducer::endState::forward(bool b)
 // HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap)
+HuffmanTransducer::HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap,
+                                     size_t symbolSize)
+  : mSymbolSize(symbolSize)
+  , mRootState(new state())
+  , mCurrentState(mRootState)
 {
-   mRootState = new state();
-   mCurrentState = mRootState;
 
    // Process the symbol map (create end states)
    std::multimap<double, state*> grouppingMap;
@@ -153,6 +169,14 @@ HuffmanTransducer::HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// ~HuffmanTransducer
+///////////////////////////////////////////////////////////////////////////////
+HuffmanTransducer::~HuffmanTransducer()
+{
+   delete mRootState;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // encodeSymbol
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -170,15 +194,15 @@ HuffmanTransducer::encodeSymbol(const bitSet& b) const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-HuffmanTransducer::encode(const bitSet& data, size_t symbolSize)
+HuffmanTransducer::encode(const bitSet& data)
 {
    bitSet output;
-   bitSet currentSymbol(symbolSize);
+   bitSet currentSymbol(mSymbolSize);
    mCurrentState = mRootState;
 
-   for (size_t i = 0; i < data.size(); i += symbolSize) {
+   for (size_t i = 0; i < data.size(); i += mSymbolSize) {
 
-      for (size_t j = 0; j < symbolSize; ++j) {
+      for (size_t j = 0; j < mSymbolSize; ++j) {
          currentSymbol[j] = data[j + i];
       }
 
@@ -209,23 +233,16 @@ HuffmanTransducer::decodeChangeState(bool b)
 // decode
 ///////////////////////////////////////////////////////////////////////////////
 
-void
+bitSet
 HuffmanTransducer::decode(const bitSet& data)
 {
    for (size_t i = 0; i < data.size(); ++i)
       decodeChangeState(data[i]);
    decodeChangeState(0); // write buffer with last bit
-}
 
-///////////////////////////////////////////////////////////////////////////////
-// moveBuffer
-///////////////////////////////////////////////////////////////////////////////
-
-void
-HuffmanTransducer::moveBuffer(bitSet& output)
-{
-   output = std::move(mBuffer);
+   bitSet output = std::move(mBuffer);
    mBuffer.clear();
+   return output;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -266,6 +283,26 @@ HuffmanTransducer::getTableSize() const
      [&](int value, const std::unordered_map<size_t, endState*>::value_type& p) {
         return value + p.second->encoded.size() + mSymbolMap.at(p.second).size();
      });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// serialize
+///////////////////////////////////////////////////////////////////////////////
+
+bitSet
+HuffmanTransducer::serialize(const bitSet& data) const
+{
+   ;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// deSerialize
+///////////////////////////////////////////////////////////////////////////////
+
+bitSet
+HuffmanTransducer::deSerialize(const bitSet& data) const
+{
+   ;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

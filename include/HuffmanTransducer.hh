@@ -1,22 +1,19 @@
 #ifndef HUFFMANTRANSDUCER_HH
 #define HUFFMANTRANSDUCER_HH
 
-#include "BinaryUtils.hh"
+#include "IEncoder.hh"
 
-#include <boost/dynamic_bitset.hpp>
 #include <map>
 #include <unordered_map>
 
-typedef boost::dynamic_bitset<> bitSet;
-
-class HuffmanTransducer
+class HuffmanTransducer : public IEncoder
 {
  private:
    class state
    {
     public:
       state(state* iZero = nullptr, state* iOne = nullptr);
-      virtual ~state() {}
+      virtual ~state();
 
       state* stateTransitions[2];
       bool mZeroVisited;
@@ -31,6 +28,7 @@ class HuffmanTransducer
    {
     public:
       endState(HuffmanTransducer* iContext, state* iZero = nullptr, state* iOne = nullptr);
+      ~endState();
 
       void writeBuffer();
       state* next(bool) override;
@@ -41,21 +39,28 @@ class HuffmanTransducer
    };
 
  public:
-   HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap);
+   HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap, size_t symbolSize);
+   ~HuffmanTransducer();
+
+   HuffmanTransducer& operator=(const HuffmanTransducer&) = delete;
+   HuffmanTransducer(const HuffmanTransducer&) = delete;
 
    bitSet encodeSymbol(const bitSet& b) const;
-   bitSet encode(const bitSet& data, size_t symbolSize);
-   void decode(const bitSet& data);
-   void moveBuffer(bitSet& output);
-
-   size_t getTableSize() const;
    double getEntropy() const;
    double getAvgCodeLength() const;
-   std::map<bitSet, bitSet> getEncodingMap() const;
+
+   // Inherited functions from IEncoder
+   bitSet encode(const bitSet& data) override;
+   bitSet decode(const bitSet& data) override;
+   size_t getTableSize() const override;
+   std::map<bitSet, bitSet> getEncodingMap() const override;
+   bitSet serialize(const bitSet& data) const override;
+   bitSet deSerialize(const bitSet& data) const override;
 
  private:
    void decodeChangeState(bool b);
 
+   size_t mSymbolSize;
    bitSet mBuffer;
    double mEntropy;
    state* mRootState;

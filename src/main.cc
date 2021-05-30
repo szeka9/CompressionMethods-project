@@ -1,5 +1,6 @@
 #include "BinaryUtils.hh"
 #include "HuffmanTransducer.hh"
+#include "MarkovEncoder.hh"
 
 #include <chrono>
 #include <exception>
@@ -59,7 +60,7 @@ main(int argc, char** argv)
       // Statistics & tree ##########################################
       t1 = std::chrono::high_resolution_clock::now();
       auto stats = getStatistics(inputData, DEF_SYMBOLSIZE);
-      HuffmanTransducer h(stats);
+      HuffmanTransducer h(stats, DEF_SYMBOLSIZE);
       t2 = std::chrono::high_resolution_clock::now();
 
       printConsoleLine("Original data");
@@ -74,19 +75,19 @@ main(int argc, char** argv)
       // Precompression with Markov chain ###########################
 
       printConsoleLine("Precompression");
-      auto markovChain = computeMarkovChain(inputData, DEF_SYMBOLSIZE);
-      auto markovMap = getMarkovEncodingMap(markovChain, DEF_PROBABILITY_THRESHOLD);
 
       bitSet unusedSymbol;
       findUnusedSymbol(h.getEncodingMap(), unusedSymbol, DEF_SYMBOLSIZE);
 
+      MarkovEncoder m(inputData, DEF_SYMBOLSIZE, DEF_PROBABILITY_THRESHOLD, unusedSymbol);
+
       t1 = std::chrono::high_resolution_clock::now();
-      auto markovEncoded = markovEncode(markovMap, inputData, DEF_SYMBOLSIZE, unusedSymbol);
+      auto markovEncoded = m.encode(inputData);
       t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Precompression using Markov chains", t1, t2);
 
       t1 = std::chrono::high_resolution_clock::now();
-      auto markovDecoded = markovDecode(markovMap, markovEncoded, DEF_SYMBOLSIZE, unusedSymbol);
+      auto markovDecoded = m.decode(markovEncoded);
       t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Decompression using Markov chains", t1, t2);
 
@@ -96,7 +97,7 @@ main(int argc, char** argv)
 
       t1 = std::chrono::high_resolution_clock::now();
       auto stats2 = getStatistics(markovEncoded, DEF_SYMBOLSIZE);
-      HuffmanTransducer h2(stats2);
+      HuffmanTransducer h2(stats2, DEF_SYMBOLSIZE);
       t2 = std::chrono::high_resolution_clock::now();
 
       printConsoleLine("Precompressed data");
@@ -111,36 +112,31 @@ main(int argc, char** argv)
       // Encoding ###################################################
       printConsoleLine("Encoding & Decoding");
       t1 = std::chrono::high_resolution_clock::now();
-      bitSet encoded = h.encode(inputData, DEF_SYMBOLSIZE);
+      bitSet encoded = h.encode(inputData);
       t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Huffman encoding (original)", t1, t2);
 
       t1 = std::chrono::high_resolution_clock::now();
-      bitSet encoded2 = h2.encode(markovEncoded, DEF_SYMBOLSIZE);
+      bitSet encoded2 = h2.encode(markovEncoded);
       t2 = std::chrono::high_resolution_clock::now();
       printDurationMessage("Huffman encoding (precompressed)", t1, t2);
 
       // Decoding ###################################################
       t1 = std::chrono::high_resolution_clock::now();
-      h.decode(encoded);
+      bitSet decoded = h.decode(encoded);
       t2 = std::chrono::high_resolution_clock::now();
-      bitSet decoded;
-      h.moveBuffer(decoded);
       printDurationMessage("Huffman decoding (original)", t1, t2);
 
       t1 = std::chrono::high_resolution_clock::now();
-      h2.decode(encoded2);
+      bitSet decoded2 = h2.decode(encoded2);
       t2 = std::chrono::high_resolution_clock::now();
-      bitSet decoded2;
-      h2.moveBuffer(decoded2);
       printDurationMessage("Huffman decoding (precompressed)", t1, t2);
 
       // ############################################################
       // writeBinary(outputName, markovEncoded, true);
 
       float normalSize = h.getTableSize() + encoded.size();
-      float precompressedSize =
-        h2.getTableSize() + encoded2.size() + markovMap.size() * 2 * DEF_SYMBOLSIZE;
+      float precompressedSize = h2.getTableSize() + encoded2.size() + m.getTableSize();
 
       printConsoleLine("File size (without serialization)");
       std::cout << "File size: " << inputData.size() / 8000.0 << " KB" << std::endl
@@ -160,7 +156,7 @@ main(int argc, char** argv)
 
       // Compare encoded and decoded data ###########################
       printConsoleLine();
-      auto markovDecoded_ = markovDecode(markovMap, decoded2, DEF_SYMBOLSIZE, unusedSymbol);
+      auto markovDecoded_ = m.decode(decoded2);
       if (inputData != decoded || inputData != markovDecoded_) {
          std::cout << "Decoding is not successful!" << std::endl;
       } else {
