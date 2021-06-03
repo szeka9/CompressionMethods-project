@@ -3,20 +3,6 @@
 #include "BinaryUtils.hh"
 #include "HuffmanTransducer.hh"
 
-#include <boost/functional/hash.hpp>
-namespace boost {
-template<typename B, typename A>
-std::size_t
-hash_value(const boost::dynamic_bitset<B, A>& a)
-{
-   std::size_t res = hash_value(a.m_num_bits);
-   boost::hash_combine(res, a.m_bits);
-   return res;
-}
-} // namespace boost
-
-#include <sys/stat.h>
-
 #include <cmath>
 #include <exception>
 #include <fstream>
@@ -29,20 +15,22 @@ using namespace BinaryUtils;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Read binary from file
+// maxSize: max. number of bytes
 ///////////////////////////////////////////////////////////////////////////////
-
 bitSet
-BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
+BinaryUtils::readBinary(const std::string& inputPath, size_t maxSize)
 {
    // https://www.cplusplus.com/reference/fstream/ifstream/rdbuf/
-   std::ifstream ifs{ fileName, std::ifstream::binary };
+   std::ifstream ifs{ inputPath, std::ifstream::binary };
    std::filebuf* pbuf = ifs.rdbuf();
    std::size_t size = pbuf->pubseekoff(0, ifs.end, ifs.in);
+   size = size > maxSize && maxSize != 0 ? maxSize : size;
    pbuf->pubseekpos(0, ifs.in);
    char* buffer = new char[size];
    pbuf->sgetn(buffer, size);
    ifs.close();
    //----------------------------------------------------------
+
    bitSet output(size * 8);
    for (size_t i = 0; i < size; i++) {
       for (size_t j = 0; j < 8; j++) {
@@ -50,8 +38,7 @@ BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
       }
    }
 
-   if (0 < maxSize && maxSize < output.size())
-      output.resize(maxSize);
+   delete buffer;
    return output;
 }
 
@@ -60,14 +47,14 @@ BinaryUtils::readBinary(const std::string& fileName, size_t maxSize)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-BinaryUtils::writeBinary(const std::string& fileName, const bitSet& data, bool paddToBytes)
+BinaryUtils::writeBinary(const std::string& outputPath, const bitSet& data, bool paddToBytes)
 {
    if (data.size() % 8 != 0 && !paddToBytes) {
-      throw std::runtime_error("Inappropriate length for a stream of bytes!");
+      throw std::runtime_error("Inappropriate length, cannot use fractions of a byte!");
    }
-   std::ofstream out{ fileName };
+   std::ofstream out{ outputPath };
 
-   size_t length = size_t(std::ceil(float(data.size()) / 8));
+   size_t length = std::ceil(float(data.size()) / 8);
    char buffer[length] = { 0 };
 
    for (size_t i = 0; i < length * 8; i += 8)
@@ -105,7 +92,7 @@ BinaryUtils::convertToBitSet(size_t number, size_t numBits)
 // The keys of the map are hash values of the symbols
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<size_t, std::tuple<bitSet, double>>
+CodeProbabilityMap
 BinaryUtils::getStatistics(bitSet data, size_t symbolSize)
 {
    if (data.size() % symbolSize != 0) {
@@ -114,17 +101,16 @@ BinaryUtils::getStatistics(bitSet data, size_t symbolSize)
         "change the symbolsize to 8 or 16.");
    }
 
-   std::map<size_t, std::tuple<bitSet, double>> result;
+   CodeProbabilityMap result;
    std::tuple<bitSet, double> stats;
    bitSet symbolBuffer(symbolSize);
 
-   for (boost::dynamic_bitset<>::size_type i = 0; i < data.size(); i += symbolSize) {
+   for (size_t i = 0; i < data.size(); i += symbolSize) {
       symbolBuffer.clear();
-      for (boost::dynamic_bitset<>::size_type j = i; j < i + symbolSize; ++j) {
+      for (size_t j = i; j < i + symbolSize; ++j) {
          symbolBuffer.push_back(data[j]);
       }
-      std::get<0>(result[BinaryUtils::hashValue(symbolBuffer)]) = symbolBuffer;
-      std::get<1>(result[BinaryUtils::hashValue(symbolBuffer)]) += 1.0 / (data.size() / symbolSize);
+      result[symbolBuffer] += 1.0 / (data.size() / symbolSize);
    }
    return result;
 }
@@ -201,17 +187,37 @@ BinaryUtils::reverseBits(bitSet& b)
    }
 }
 
+bitSet
+BinaryUtils::copyReverseBits(const bitSet& b)
+{
+   bitSet result(b.size());
+   for (int i = b.size() - 1; i >= 0; --i)
+      result[b.size() - i - 1] = b[i];
+   return result;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
-// Append bits
+// reverseAppend
 ///////////////////////////////////////////////////////////////////////////////
 void
-BinaryUtils::appendBits(bitSet& to, const bitSet& from)
+BinaryUtils::reverseAppend(bitSet& to, const bitSet& from)
 {
    for (int i = from.size() - 1; i >= 0; --i)
       to.push_back(from[i]);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// append
+///////////////////////////////////////////////////////////////////////////////
+void
+BinaryUtils::append(bitSet& to, const bitSet& from)
+{
+   for (size_t i = 0; i < from.size(); ++i)
+      to.push_back(from[i]);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// sliceBitSet
 // Get slice from bitSet
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -226,7 +232,8 @@ BinaryUtils::sliceBitSet(const bitSet& b, size_t startIdx, size_t numBits)
    return result;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////ű
+// countZeros
 // Count maximum number of consequtive zero bits
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -237,6 +244,7 @@ BinaryUtils::countZeros(const bitSet& b)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// findMostZeros
 // Find the position of maximum number of consequtive zeros
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -245,15 +253,15 @@ BinaryUtils::findMostZeros(const bitSet& b)
 {
    size_t maxCount = 0;
    size_t iCount = 0;
-   size_t idx = b.size() - 1;
+   size_t idx = b.size();
 
-   for (int i = b.size() - 1; i >= 0; --i) {
+   for (size_t i = 0; i < b.size(); ++i) {
       if (!b[i])
          ++iCount;
       else {
          if (iCount > maxCount) {
             maxCount = iCount;
-            idx = b.size() - (i + iCount) - 1;
+            idx = i - iCount;
          }
          iCount = 0;
       }
@@ -266,7 +274,7 @@ BinaryUtils::findMostZeros(const bitSet& b)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Serialize
+// serialize - common
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
@@ -274,22 +282,22 @@ BinaryUtils::serialize(std::vector<bitSet> data, size_t numBytes)
 {
    bitSet result;
    for (const bitSet& b : data) {
-      bitSet bSize = convertToBitSet(b.size(), numBytes * 8);
+      auto bSize = convertToBitSet(b.size(), numBytes * 8);
       if (bSize.size() != numBytes * 8)
-         throw std::runtime_error("Incorrect size for indicating the data size!");
+         throw std::runtime_error("Incorrect width for indicating the data size!");
 
-      appendBits(result, bSize);
-      appendBits(result, b);
+      reverseAppend(result, bSize);
+      reverseAppend(result, b);
    }
    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Serialize
+// deserialize - common
 ///////////////////////////////////////////////////////////////////////////////
 
 std::vector<bitSet>
-BinaryUtils::deSerialize(const bitSet& data, size_t numBytes)
+BinaryUtils::deserialize(const bitSet& data, size_t numBytes)
 {
    std::vector<bitSet> result;
 
@@ -298,12 +306,13 @@ BinaryUtils::deSerialize(const bitSet& data, size_t numBytes)
    while (currentIdx + currentSize.to_ulong() <= data.size() && currentSize.to_ulong() > 0) {
       result.push_back(sliceBitSet(data, currentIdx, currentSize.to_ulong()));
       currentIdx += currentSize.to_ulong();
-      if (currentIdx + numBytes * 8 < data.size()) {
-         currentSize = sliceBitSet(data, currentIdx, numBytes * 8);
-         currentIdx += numBytes * 8;
-      } else {
+
+      if (currentIdx + numBytes * 8 >= data.size())
          break;
-      }
+
+      currentSize = sliceBitSet(data, currentIdx, numBytes * 8);
+      currentIdx += numBytes * 8;
    }
+
    return result;
 }

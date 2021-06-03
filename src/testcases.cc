@@ -3,21 +3,22 @@
 #include "MarkovEncoder.hh"
 
 #include <iostream>
+#include <string>
 #include <vector>
 
 using namespace BinaryUtils;
 
 #define TEST_FUNCTION(function) addTestCase(function, #function)
 
-#define DEF_SYMBOLSIZE 16              // Note: does not work for odd byte sizes
-#define DEF_PROBABILITY_THRESHOLD 0.01 // State transitions with >10% probability
+#define DEF_SYMBOLSIZE 16             // Note: does not work for odd byte sizes
+#define DEF_PROBABILITY_THRESHOLD 0.4 // State transitions with >40% probability
 
 // BinaryUtils ################################################################
 bool
 readBinary_valid_rightSize()
 {
    auto b = readBinary("../samples/text_data.txt", 1000);
-   return b.size() == 1000;
+   return b.size() == 8000;
 }
 
 bool
@@ -38,10 +39,12 @@ reverseBits_default_match()
    bitSet b(std::string("11001100"));
    reverseBits(b);
    result = result && b == bitSet(std::string("00110011"));
+   result = result && copyReverseBits(b) == bitSet(std::string("11001100"));
 
    b = bitSet(std::string("11111111"));
    reverseBits(b);
    result = result && b == bitSet(std::string("11111111"));
+   result = result && copyReverseBits(b) == bitSet(std::string("11111111"));
 
    return result;
 }
@@ -51,15 +54,15 @@ appendBits_default_match()
 {
    bool result = true;
    bitSet b(std::string("111000"));
-   appendBits(b, bitSet(std::string("01")));
+   reverseAppend(b, bitSet(std::string("01")));
    result = result && b == bitSet(std::string("10111000"));
 
    b = bitSet();
-   appendBits(b, bitSet(std::string("01")));
+   reverseAppend(b, bitSet(std::string("01")));
    result = result && b == bitSet(std::string("10"));
 
    b = bitSet();
-   appendBits(b, bitSet());
+   reverseAppend(b, bitSet());
    result = result && b == bitSet();
 
    return result;
@@ -71,19 +74,23 @@ findMostZeros_default_match()
    bool result = true;
    bitSet b(std::string("11011001"));
    size_t i = findMostZeros(b);
-   result = result && i == 5;
+   // result = result && i == 5;
+   result = result && i == 1;
 
    b = bitSet(std::string("00000001"));
    i = findMostZeros(b);
-   result = result && i == 0;
+   // result = result && i == 0;
+   result = result && i == 1;
 
    b = bitSet(std::string("11111110"));
    i = findMostZeros(b);
-   result = result && i == 7;
+   // result = result && i == 7;
+   result = result && i == 0;
 
    b = bitSet(std::string("00000001"));
    i = findMostZeros(b);
-   result = result && i == 0;
+   // result = result && i == 0;
+   result = result && i == 1;
    return result;
 }
 
@@ -141,18 +148,18 @@ bool
 deserialize_huffman_encoding_match()
 {
 
-   bitSet inputData = readBinary("../samples/text_data.txt", 0);
+   auto inputData = readBinary("../samples/text_data.txt", 0);
    auto stats = getStatistics(inputData, DEF_SYMBOLSIZE);
    HuffmanTransducer h(stats, DEF_SYMBOLSIZE);
 
-   bitSet serialized = h.serialize();
-   bitSet encoded = h.encode(inputData);
+   auto serialized = h.serialize();
+   auto encoded = h.encode(inputData);
    std::vector<bitSet> b;
    b.push_back(serialized);
    b.push_back(encoded);
 
-   bitSet serialized_all = serialize(b, 3);
-   auto bRes = deSerialize(serialized_all, 3);
+   auto serialized_all = serialize(b, 3);
+   auto bRes = deserialize(serialized_all, 3);
 
    HuffmanTransducer deserilizedHuffman = HuffmanTransducer::deserialize(bRes[0]);
 
@@ -185,7 +192,7 @@ bool
 deserialize_markov_encoding_match()
 {
 
-   bitSet inputData = readBinary("../samples/text_data.txt", 0);
+   auto inputData = readBinary("../samples/text_data.txt", 0);
    auto stats = getStatistics(inputData, DEF_SYMBOLSIZE);
    HuffmanTransducer h(stats, DEF_SYMBOLSIZE);
 

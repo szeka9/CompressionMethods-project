@@ -1,8 +1,14 @@
+#define BOOST_DYNAMIC_BITSET_DONT_USE_FRIENDS
+
 #include "MarkovEncoder.hh"
 #include "BinaryUtils.hh"
-#include "IDecoder.hh"
+
+#include <map>
+#include <unordered_map>
 
 using namespace BinaryUtils;
+
+#define S_WIDTH 3 * 8
 
 ///////////////////////////////////////////////////////////////////////////////
 // MarkovEncoder
@@ -40,7 +46,7 @@ MarkovEncoder::MarkovEncoder(const std::map<bitSet, bitSet>& iSymbolMap,
 MarkovEncoder::MarkovChain
 MarkovEncoder::computeMarkovChain(const bitSet& data, size_t symbolSize)
 {
-   std::map<bitSet, std::map<bitSet, float>> result;
+   MarkovChain result;
    bitSet previousSymbol(symbolSize);
    bitSet currentSymbol(symbolSize);
 
@@ -51,7 +57,7 @@ MarkovEncoder::computeMarkovChain(const bitSet& data, size_t symbolSize)
       for (size_t j = 0; j < symbolSize; ++j)
          currentSymbol[j] = data[i + j];
 
-      std::map<bitSet, float> nextStates;
+      boost::unordered_map<bitSet, float> nextStates;
       result.emplace(previousSymbol, nextStates);
       result.at(previousSymbol).emplace(currentSymbol, 0);
       result.at(previousSymbol).at(currentSymbol) += 1;
@@ -124,18 +130,18 @@ bitSet
 MarkovEncoder::serialize()
 {
    bitSet result;
-   appendBits(result, convertToBitSet(mEncodingMap.size(), 3 * 8));
-   appendBits(result, convertToBitSet(mSymbolSize, 8));
-   appendBits(result, mUnusedSymbol);
+   reverseAppend(result, convertToBitSet(mEncodingMap.size(), S_WIDTH));
+   reverseAppend(result, convertToBitSet(mSymbolSize, 8));
+   reverseAppend(result, mUnusedSymbol);
    for (auto p : mEncodingMap) {
-      appendBits(result, p.first);
-      appendBits(result, p.second);
+      reverseAppend(result, p.first);
+      reverseAppend(result, p.second);
    }
    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// deSerialize
+// deserialize
 ///////////////////////////////////////////////////////////////////////////////
 
 MarkovEncoder
@@ -144,8 +150,8 @@ MarkovEncoder::deserialize(const bitSet& data)
    std::map<bitSet, bitSet> result;
    size_t currentIdx = 0;
 
-   size_t numSymbols = sliceBitSet(data, currentIdx, 3 * 8).to_ulong();
-   currentIdx += 3 * 8;
+   size_t numSymbols = sliceBitSet(data, currentIdx, S_WIDTH).to_ulong();
+   currentIdx += S_WIDTH;
    size_t symbolSize = sliceBitSet(data, currentIdx, 8).to_ulong();
    currentIdx += 8;
    bitSet unusedSymbol = sliceBitSet(data, currentIdx, symbolSize);

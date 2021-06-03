@@ -9,8 +9,12 @@
 
 using namespace BinaryUtils;
 
-#define DEF_SYMBOLSIZE 16              // Note: does not work for odd byte sizes
-#define DEF_PROBABILITY_THRESHOLD 0.01 // State transitions with >10% probability
+#define DEF_SYMBOLSIZE 16             // Note: does not work for odd byte sizes
+#define DEF_PROBABILITY_THRESHOLD 0.4 // State transitions with >40% probability
+
+///////////////////////////////////////////////////////////////////////////////
+// utility functions
+///////////////////////////////////////////////////////////////////////////////
 
 void
 printDurationMessage(const std::string& what,
@@ -34,6 +38,10 @@ printConsoleLine(const std::string header = "")
       std::cout << "-";
    std::cout << std::endl;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// demo
+///////////////////////////////////////////////////////////////////////////////
 
 void
 demo(const std::string& inputName)
@@ -155,6 +163,10 @@ demo(const std::string& inputName)
              << "Hash (decoded data, precompressed): " << hashValue(markovDecoded_) << std::endl;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// encode
+///////////////////////////////////////////////////////////////////////////////
+
 void
 encode(const std::string& inputName, const std::string& outputName)
 {
@@ -187,13 +199,17 @@ encode(const std::string& inputName, const std::string& outputName)
    writeBinary(outputName, serialized_all, true);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// decode
+///////////////////////////////////////////////////////////////////////////////
+
 void
 decode(const std::string& inputName, const std::string& outputName)
 {
 
    bitSet inputData = readBinary(inputName, 0);
 
-   std::vector<bitSet> serialized = deSerialize(inputData, 4);
+   std::vector<bitSet> serialized = deserialize(inputData, 4);
    if (serialized.size() != 3) {
       throw std::runtime_error("Cannot deserialize!");
    }
@@ -207,35 +223,39 @@ decode(const std::string& inputName, const std::string& outputName)
    writeBinary(outputName, markovDecoded, true);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// main
+///////////////////////////////////////////////////////////////////////////////
+
 int
 main(int argc, char** argv)
 {
-   std::string inputName;
-   std::string outputName = "binary_";
-   std::string mode = "demo";
+   std::string inputName = "../samples/text_data.txt";
+   std::string outputName = "encoded_output";
+   std::string mode = "--demo";
 
    if (argc < 2) {
       std::cout << "Missing parameters!" << std::endl;
       return 0;
    }
 
-   inputName = std::string(argv[1]);
+   mode = std::string(argv[1]);
    if (argc > 2) {
-      outputName = std::string(argv[2]);
+      inputName = std::string(argv[2]);
    }
    if (argc > 3) {
-      mode = std::string(argv[3]);
+      outputName = std::string(argv[3]);
    }
 
    try {
-      if (mode == "demo") {
+      if (mode == "--demo") {
          demo(inputName);
-      }
-      if (mode == "encode") {
+      } else if (mode == "--encode") {
          encode(inputName, outputName);
-      }
-      if (mode == "decode") {
+      } else if (mode == "--decode") {
          decode(inputName, outputName);
+      } else {
+         std::cout << "Unrecognized option: " << mode << std::endl;
       }
    } catch (std::exception& E) {
       std::cout << E.what();

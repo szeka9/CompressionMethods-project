@@ -4,8 +4,8 @@
 #include "IDecoder.hh"
 #include "IEncoder.hh"
 
+#include <boost/unordered_map.hpp>
 #include <map>
-#include <unordered_map>
 
 class HuffmanTransducer
   : public IEncoder
@@ -42,7 +42,8 @@ class HuffmanTransducer
    };
 
  public:
-   HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap, size_t symbolSize);
+   typedef boost::unordered_map<bitSet, double> CodeProbabilityMap;
+   HuffmanTransducer(CodeProbabilityMap& symbolMap, size_t symbolSize);
    ~HuffmanTransducer();
 
    bitSet encodeSymbol(const bitSet& b) const;
@@ -50,27 +51,26 @@ class HuffmanTransducer
    double getAvgCodeLength() const;
 
    // Inherited functions
-   bitSet encode(const bitSet& data) override;
-   bitSet decode(const bitSet& data) override;
+   bitSet encode(const bitSet&) override;
+   bitSet decode(const bitSet&) override;
    bitSet serialize() override;
-   static HuffmanTransducer deserialize(const bitSet& deserializationData);
-
+   static HuffmanTransducer deserialize(const bitSet&);
    size_t getTableSize() const override;
    std::map<bitSet, bitSet> getEncodingMap() const override;
 
  private:
-   HuffmanTransducer(const std::map<bitSet, bitSet>&, size_t);
-   void decodeChangeState(bool b);
+   HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, size_t symbolSize);
+   void decodeChangeState(bool);
 
    size_t mSymbolSize;
    bitSet mBuffer;
-   double mEntropy;
    state* mRootState;
    state* mCurrentState;
+   double mEntropy;
 
-   std::unordered_map<size_t, endState*> mEndStates;
-   std::unordered_map<endState*, double> mCodeProbability;
-   std::unordered_map<state*, bitSet> mSymbolMap;
+   boost::unordered_map<bitSet, endState*> mEncodingMap;
+   boost::unordered_map<state*, bitSet> mDecodingMap;
+   boost::unordered_map<endState*, double> mCodeProbability;
 };
 
 #endif // HUFFMANTRANSDUCER_HH
