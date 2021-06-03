@@ -13,7 +13,7 @@ The main idea of this project is a precompressor based Markov chains. I original
   2. for each symbol, select the next most probable symbol based on the frequencies
   3. based on a frequency threshold, create an encoding map with two columns: if column 1 = symbol A, column 2 = symbol B then the consequent symbol of symbol A should be XORed with symbol B. If not all symbols are used in the source data, then select one of them as a substituting symbol instead: at each transition this symbol will encode the consequtive symbol if the consequtive symbol matches the assumed symbol. This can further improve the compression ratio. Otherwise all consequtive symbols are encoded regardless if it matches the assumption.
   5. execute the encoding on the input data using the encoding table (starting from the first symbol)
-  6. Apply Huffman encoding
+  6. apply Huffman encoding
 
 The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is noticable difference in the compression.
 
@@ -25,7 +25,9 @@ The current implementation does support serializing the compressed data, however
   
   <i>make</i>
   
-   <i>./HuffmanTransducer <file path> <output path> <demo | encode | decode>  (e.g. ./HuffmanTransducer ../samples/text_data.txt output.bin encode)  </i>
+   <i>./HuffmanTransducer <demo | encode | decode> <input path> <output path> (e.g. ./HuffmanTransducer ../samples/text_data.txt output.bin encode)  </i>
+  
+  Run <i>./HuffmanTransducer demo</i> to display information in the console.
 
 
 Boost libraries are required to compile the code.
