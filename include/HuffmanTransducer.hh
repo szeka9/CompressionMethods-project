@@ -1,12 +1,15 @@
 #ifndef HUFFMANTRANSDUCER_HH
 #define HUFFMANTRANSDUCER_HH
 
+#include "IDecoder.hh"
 #include "IEncoder.hh"
 
 #include <map>
 #include <unordered_map>
 
-class HuffmanTransducer : public IEncoder
+class HuffmanTransducer
+  : public IEncoder
+  , public IDecoder<HuffmanTransducer>
 {
  private:
    class state
@@ -42,23 +45,21 @@ class HuffmanTransducer : public IEncoder
    HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>> iSymbolMap, size_t symbolSize);
    ~HuffmanTransducer();
 
-   HuffmanTransducer& operator=(const HuffmanTransducer&) = delete;
-   HuffmanTransducer(const HuffmanTransducer&) = delete;
-
    bitSet encodeSymbol(const bitSet& b) const;
    double getEntropy() const;
    double getAvgCodeLength() const;
 
-   // Inherited functions from IEncoder
+   // Inherited functions
    bitSet encode(const bitSet& data) override;
    bitSet decode(const bitSet& data) override;
-   bitSet serialize(const bitSet& data) override;
-   bitSet deSerialize(const bitSet& data) override;
+   bitSet serialize() override;
+   static HuffmanTransducer deserialize(const bitSet& deserializationData);
 
    size_t getTableSize() const override;
    std::map<bitSet, bitSet> getEncodingMap() const override;
 
  private:
+   HuffmanTransducer(const std::map<bitSet, bitSet>&, size_t);
    void decodeChangeState(bool b);
 
    size_t mSymbolSize;

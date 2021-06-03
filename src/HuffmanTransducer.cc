@@ -169,6 +169,38 @@ HuffmanTransducer::HuffmanTransducer(std::map<size_t, std::tuple<bitSet, double>
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// HuffmanTransducer - for deserialization
+///////////////////////////////////////////////////////////////////////////////
+
+HuffmanTransducer::HuffmanTransducer(const std::map<bitSet, bitSet>& iSymbolMap, size_t symbolSize)
+  : mSymbolSize(symbolSize)
+  , mRootState(new state())
+  , mCurrentState(mRootState)
+{
+   for (auto it = iSymbolMap.begin(); it != iSymbolMap.end(); ++it) {
+      // std::cout << it->first << " " << it->second << std::endl;
+      bitSet b = it->second;
+      for (size_t i = 0; i < it->second.size(); ++i) {
+         if (mCurrentState->next(b[i]) == nullptr) {
+            if (i == it->second.size() - 1) {
+               auto e = new endState(this, mRootState, mRootState);
+               mCurrentState->stateTransitions[b[i]] = e;
+               static_cast<endState*>(mCurrentState->stateTransitions[b[i]])->encoded = it->second;
+               mEndStates.emplace(hashValue(it->first), e);
+               mSymbolMap.emplace(e, it->first);
+            } else {
+               mCurrentState->stateTransitions[b[i]] = new state();
+            }
+         } else if (i == it->second.size() - 1) {
+            std::cout << "Symbol collision" << std::endl;
+         }
+         mCurrentState = mCurrentState->next(b[i]);
+      }
+      mCurrentState = mRootState;
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // ~HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 HuffmanTransducer::~HuffmanTransducer()
@@ -286,23 +318,129 @@ HuffmanTransducer::getTableSize() const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// serialize
+// Serialize
+// format:
+// [number of symbols (3 bytes)]
+// [symbol size (non-encoded) (1 byte)]
+// [start symbol (non-encoded): DEF_SYMBOL_SIZE]
+// ...
+// [entry size (3 bit) - # of bytes]
+// [encoded symbol size - # of bits in reversed bit order][0 separators][offset to next
+// (non-encoded) symbol] [encoded symbol: m bits]
+// ...
+//
+// 0 separators are used to be able to separate the encoded symbol size and offset
+// which should always add up to whole bytes (measured in the entry size). The nubmer
+// of 0s used must be more than the number of 0s in the encoded size or the offset.
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-HuffmanTransducer::serialize(const bitSet& data)
+HuffmanTransducer::serialize()
 {
-   ;
+   bitSet serialized;
+
+   // number of symbols
+   auto encodingMap = getEncodingMap();
+   bitSet bSize = convertToBitSet(encodingMap.size(), 3 * 8);
+   appendBits(serialized, bSize);
+
+   // symbol size and start symbol
+   auto it = encodingMap.begin();
+   auto currentSymbol = it->first;
+   auto bSymbolSize = convertToBitSet(mSymbolSize, 1 * 8);
+   if (bSymbolSize.size() > 8)
+      throw std::runtime_error("Symbol size takes more than one byte!");
+   appendBits(serialized, bSymbolSize);
+   appendBits(serialized, currentSymbol);
+
+   bitSet nextSymbol;
+   bitSet bOffset;
+   int offset;
+
+   size_t i = 0;
+   for (it = encodingMap.begin(); it != encodingMap.end(); ++it) {
+
+      if (std::next(it) != encodingMap.end()) {
+         nextSymbol = std::next(it)->first;
+         offset = int(nextSymbol.to_ulong()) - int(currentSymbol.to_ulong());
+         if (offset < 0)
+            throw std::runtime_error("Negative offset!");
+         bOffset = convertToBitSet(offset);
+      } else {
+         offset = 0;
+         bOffset = bitSet(1);
+         nextSymbol = bitSet();
+      }
+
+      // Encoded size, offset, zero separators
+      auto encodedSize = convertToBitSet(it->second.size());
+      reverseBits(encodedSize);
+      size_t numSeparator = countZeros(bOffset) > countZeros(encodedSize)
+                              ? countZeros(bOffset) + 1
+                              : countZeros(encodedSize) + 1;
+
+      if ((encodedSize.size() + bOffset.size() + numSeparator) % 8)
+         numSeparator += 8 - ((encodedSize.size() + bOffset.size() + numSeparator) % 8);
+
+      // Entry size computed from the previous values
+      size_t entrySize = (encodedSize.size() + bOffset.size() + numSeparator) / 8;
+      auto bEntrySize = convertToBitSet(entrySize, 3);
+
+      // Write to output
+      appendBits(serialized, bEntrySize);
+      appendBits(serialized, encodedSize);
+      appendBits(serialized, bitSet(numSeparator));
+      appendBits(serialized, bOffset);
+      appendBits(serialized, it->second);
+
+      currentSymbol = nextSymbol;
+   }
+
+   return serialized;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // deSerialize
 ///////////////////////////////////////////////////////////////////////////////
 
-bitSet
-HuffmanTransducer::deSerialize(const bitSet& data)
+HuffmanTransducer
+HuffmanTransducer::deserialize(const bitSet& data)
 {
-   ;
+   std::map<bitSet, bitSet> result;
+
+   auto numSymbols = sliceBitSet(data, 0, 3 * 8);
+   auto symbolsize = sliceBitSet(data, 3 * 8, 8);
+   bitSet currentSymbol = sliceBitSet(data, 4 * 8, symbolsize.to_ulong());
+
+   size_t symbolCounter = 1;
+   size_t currentIdx = 4 * 8 + symbolsize.to_ulong();
+
+   while (symbolCounter != numSymbols.to_ulong() + 1) {
+      auto entrySize = sliceBitSet(data, currentIdx, 3).to_ulong();
+      currentIdx += 3;
+
+      auto entry = sliceBitSet(data, currentIdx, entrySize * 8);
+      auto reversedEntry = entry;
+      reverseBits(reversedEntry);
+
+      auto encodedSize = sliceBitSet(reversedEntry, 0, findMostZeros(entry));
+      auto offs = sliceBitSet(entry, 0, findMostZeros(reversedEntry));
+      reverseBits(encodedSize);
+      reverseBits(offs);
+
+      currentIdx += entrySize * 8;
+
+      auto encoded = sliceBitSet(data, currentIdx, encodedSize.to_ulong());
+      currentIdx += encodedSize.to_ulong();
+      result.emplace(currentSymbol, encoded);
+
+      currentSymbol =
+        convertToBitSet(currentSymbol.to_ulong() + offs.to_ulong(), symbolsize.to_ulong());
+
+      symbolCounter += 1;
+   }
+
+   return HuffmanTransducer(result, symbolsize.to_ulong());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

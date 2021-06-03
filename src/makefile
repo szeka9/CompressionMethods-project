@@ -11,6 +11,9 @@ DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 _OBJ = main.o BinaryUtils.o HuffmanTransducer.o MarkovEncoder.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
+_T_OBJ = testcases.o BinaryUtils.o HuffmanTransducer.o MarkovEncoder.o
+T_OBJ = $(patsubst %,$(ODIR)/%,$(_T_OBJ))
+
 MKDIR_P = mkdir -p
 
 $(ODIR)/%.o: %.cc $(DEPS)
@@ -18,6 +21,9 @@ $(ODIR)/%.o: %.cc $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 HuffmanTransducer: $(OBJ)
+	$(CC) -o $@ $^ $(CFLAGS)
+
+TestCases: $(T_OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean

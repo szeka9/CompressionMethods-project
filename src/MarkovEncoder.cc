@@ -1,5 +1,6 @@
 #include "MarkovEncoder.hh"
 #include "BinaryUtils.hh"
+#include "IDecoder.hh"
 
 using namespace BinaryUtils;
 
@@ -16,6 +17,18 @@ MarkovEncoder::MarkovEncoder(const bitSet& data,
 {
    mEncodingMap = createEncodingMap(computeMarkovChain(data, symbolSize), threshold);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// MarkovEncoder - for deserialization
+///////////////////////////////////////////////////////////////////////////////
+
+MarkovEncoder::MarkovEncoder(const std::map<bitSet, bitSet>& iSymbolMap,
+                             bitSet iUnusedSymbol,
+                             size_t iSymbolSize)
+  : mEncodingMap(iSymbolMap)
+  , mUnusedSymbol(iUnusedSymbol)
+  , mSymbolSize(iSymbolSize)
+{}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Generate probability map
@@ -107,21 +120,45 @@ MarkovEncoder::getEncodingMap() const
 ///////////////////////////////////////////////////////////////////////////////
 // serialize
 ///////////////////////////////////////////////////////////////////////////////
-
 bitSet
-MarkovEncoder::serialize(const bitSet& data)
+MarkovEncoder::serialize()
 {
-   ;
+   bitSet result;
+   appendBits(result, convertToBitSet(mEncodingMap.size(), 3 * 8));
+   appendBits(result, convertToBitSet(mSymbolSize, 8));
+   appendBits(result, mUnusedSymbol);
+   for (auto p : mEncodingMap) {
+      appendBits(result, p.first);
+      appendBits(result, p.second);
+   }
+   return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // deSerialize
 ///////////////////////////////////////////////////////////////////////////////
 
-bitSet
-MarkovEncoder::deSerialize(const bitSet& data)
+MarkovEncoder
+MarkovEncoder::deserialize(const bitSet& data)
 {
-   ;
+   std::map<bitSet, bitSet> result;
+   size_t currentIdx = 0;
+
+   size_t numSymbols = sliceBitSet(data, currentIdx, 3 * 8).to_ulong();
+   currentIdx += 3 * 8;
+   size_t symbolSize = sliceBitSet(data, currentIdx, 8).to_ulong();
+   currentIdx += 8;
+   bitSet unusedSymbol = sliceBitSet(data, currentIdx, symbolSize);
+   currentIdx += symbolSize;
+
+   size_t symbolCounter = 0;
+   while (symbolCounter < numSymbols && currentIdx + symbolSize * 2 <= data.size()) {
+      result.emplace(sliceBitSet(data, currentIdx, symbolSize),
+                     sliceBitSet(data, currentIdx + symbolSize, symbolSize));
+      currentIdx += 2 * symbolSize;
+      ++symbolCounter;
+   }
+   return MarkovEncoder(result, unusedSymbol, symbolSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
