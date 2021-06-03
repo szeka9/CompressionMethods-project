@@ -15,7 +15,7 @@ The main idea of this project is a precompressor based Markov chains. I original
   5. execute the encoding on the input data using the encoding table (starting from the first symbol)
   6. apply Huffman encoding
 
-The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is noticable difference in the compression.
+The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is noticable difference in the compression (15-20%).
 
 The current implementation does support serializing the compressed data, however the file size should not exceed 6MB, since this feature is experimental.
 
@@ -25,7 +25,7 @@ The current implementation does support serializing the compressed data, however
   
   <i>make</i>
   
-   <i>./HuffmanTransducer <demo | encode | decode> <input path> <output path> (e.g. ./HuffmanTransducer ../samples/text_data.txt output.bin encode)  </i>
+   <i>./HuffmanTransducer <--demo | --encode | --decode> <input path> <output path> (e.g. ./HuffmanTransducer ../samples/text_data.txt output.bin encode)  </i>
   
   Run "<i>./HuffmanTransducer demo</i>" to display information in the console.
 
@@ -34,7 +34,8 @@ Boost libraries are required to compile the code.
 
 ## Example output
 
-![kép](https://user-images.githubusercontent.com/28252625/119994180-a48efd00-bfcc-11eb-92d1-4989bbeb2ac8.png)
+![kép](https://user-images.githubusercontent.com/28252625/120709645-635f8700-c4bd-11eb-87d2-5a0c567fccaa.png)
+
 
 
 
