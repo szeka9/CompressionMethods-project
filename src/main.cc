@@ -44,7 +44,7 @@ printConsoleLine(const std::string header = "")
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-demo(const std::string& inputName)
+demo(const std::string& inputName, const std::string& outputName)
 {
    // Generate or read binary #####################################
    auto t1 = std::chrono::high_resolution_clock::now();
@@ -129,7 +129,6 @@ demo(const std::string& inputName)
    printDurationMessage("Huffman decoding (precompressed)", t1, t2);
 
    // ############################################################
-   // writeBinary(outputName, markovEncoded, true);
 
    float normalSize = h.getTableSize() + encoded.size();
    float precompressedSize = h2.getTableSize() + encoded2.size() + m.getTableSize();
@@ -140,6 +139,11 @@ demo(const std::string& inputName)
              << std::endl
              << "Compressed size (precompressed) with encoding table: "
              << (precompressedSize) / 8000.0 << " KB" << std::endl;
+
+   t1 = std::chrono::high_resolution_clock::now();
+   writeBinary(outputName, markovDecoded, false);
+   t2 = std::chrono::high_resolution_clock::now();
+   printDurationMessage("Writing into file", t1, t2);
 
    float originalRate = float(inputData.size()) / normalSize;
    float precompressedRate = float(inputData.size()) / precompressedSize;
@@ -249,7 +253,7 @@ main(int argc, char** argv)
 
    try {
       if (mode == "--demo") {
-         demo(inputName);
+         demo(inputName, "demo_decoded");
       } else if (mode == "--encode") {
          encode(inputName, outputName);
       } else if (mode == "--decode") {

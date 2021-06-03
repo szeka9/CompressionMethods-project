@@ -10,6 +10,7 @@
 #include <map>
 #include <random>
 #include <string>
+#include <vector>
 
 using namespace BinaryUtils;
 
@@ -32,6 +33,8 @@ BinaryUtils::readBinary(const std::string& inputPath, size_t maxSize)
    //----------------------------------------------------------
 
    bitSet output(size * 8);
+
+#pragma omp parallel for
    for (size_t i = 0; i < size; i++) {
       for (size_t j = 0; j < 8; j++) {
          buffer[i] & (1 << (7 - j)) ? output[i * 8 + j] = true : output[i * 8 + j] = false;
@@ -52,16 +55,16 @@ BinaryUtils::writeBinary(const std::string& outputPath, const bitSet& data, bool
    if (data.size() % 8 != 0 && !paddToBytes) {
       throw std::runtime_error("Inappropriate length, cannot use fractions of a byte!");
    }
-   std::ofstream out{ outputPath };
-
+   std::ofstream out{ outputPath, std::ofstream::binary };
    size_t length = std::ceil(float(data.size()) / 8);
-   char buffer[length] = { 0 };
+   std::vector<char> buffer(length);
 
+#pragma omp parallel for
    for (size_t i = 0; i < length * 8; i += 8)
       for (int j = 0; j < 8 && i + j < data.size(); ++j)
          buffer[size_t(i / 8)] += data[i + j] * pow(2, 7 - j);
 
-   out.write(buffer, sizeof(buffer));
+   out.write(&buffer[0], buffer.size());
 
    if (!out.good()) {
       throw std::runtime_error("An error occured during writing!");
@@ -106,9 +109,8 @@ BinaryUtils::getStatistics(bitSet data, size_t symbolSize)
    bitSet symbolBuffer(symbolSize);
 
    for (size_t i = 0; i < data.size(); i += symbolSize) {
-      symbolBuffer.clear();
-      for (size_t j = i; j < i + symbolSize; ++j) {
-         symbolBuffer.push_back(data[j]);
+      for (size_t j = 0; j < symbolSize; ++j) {
+         symbolBuffer[j] = data[j + i];
       }
       result[symbolBuffer] += 1.0 / (data.size() / symbolSize);
    }
