@@ -27,7 +27,7 @@ The current implementation does support serializing the compressed data, however
   
    <i>./HuffmanTransducer <--demo | --encode | --decode> <input path> <output path> (e.g. ./HuffmanTransducer --encode ../samples/text_data.txt output.bin)  </i>
   
-  Run "<i>./HuffmanTransducer demo</i>" to display information in the console.
+  Run "<i>./HuffmanTransducer --demo</i>" to display information in the console.
 
 
 Boost libraries are required to compile the code.
