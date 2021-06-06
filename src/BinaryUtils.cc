@@ -3,6 +3,8 @@
 #include "BinaryUtils.hh"
 #include "HuffmanTransducer.hh"
 
+#include <algorithm>
+#include <boost/unordered_set.hpp>
 #include <cmath>
 #include <exception>
 #include <fstream>
@@ -56,7 +58,8 @@ BinaryUtils::writeBinary(const std::string& outputPath, const bitSet& data, bool
       throw std::runtime_error("Inappropriate length, cannot use fractions of a byte!");
    }
    std::ofstream out{ outputPath, std::ofstream::binary };
-   size_t length = std::ceil(float(data.size()) / 8);
+   size_t length = data.size() % 8 ? data.size() + 8 - data.size() % 8 : data.size();
+   length = length / 8;
    std::vector<char> buffer(length);
 
 #pragma omp parallel for
@@ -81,12 +84,17 @@ BinaryUtils::convertToBitSet(size_t number, size_t numBits)
    size_t finalSize = size > numBits ? size : numBits;
    BinaryUtils::bitSet result(finalSize);
 
-   int pos = finalSize - 1;
+   /*int pos = finalSize - 1;
    for (size_t i = number % 2; number > 0 && pos >= 0; number /= 2, i = number % 2) {
       i ? result[pos] = 1 : result[pos] = 0;
       --pos;
    }
-   reverseBits(result);
+   reverseBits(result);*/
+   int pos = 0;
+   for (size_t i = number % 2; number > 0 && pos < finalSize; number /= 2, i = number % 2) {
+      i ? result[pos] = 1 : result[pos] = 0;
+      ++pos;
+   }
    return result;
 }
 
@@ -146,7 +154,6 @@ BinaryUtils::getExpRandomData(size_t numBits, bool paddToBytes, size_t distribut
 
 ///////////////////////////////////////////////////////////////////////////////
 // Find unused symbol
-// The unused symbol can be used as a unusedSymbol
 ///////////////////////////////////////////////////////////////////////////////
 
 void
@@ -161,6 +168,31 @@ BinaryUtils::findUnusedSymbol(const std::map<bitSet, bitSet>& encodingMap,
       ++n;
    }
    if (encodingMap.find(current) == encodingMap.end()) {
+      result = bitSet(current);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Find unused symbol
+///////////////////////////////////////////////////////////////////////////////
+
+void
+BinaryUtils::findUnusedSymbol(const bitSet& data, bitSet& result, size_t symbolSize)
+{
+   boost::unordered_set<bitSet> symbols;
+   int idx = 0;
+   while (idx + symbolSize <= data.size()) {
+      symbols.emplace(slice(data, idx, symbolSize));
+      idx += symbolSize;
+   }
+
+   idx = pow(2, symbolSize) - 1;
+   bitSet current = BinaryUtils::convertToBitSet(idx, symbolSize);
+   while (idx >= 0 && std::find(symbols.begin(), symbols.end(), current) != symbols.end()) {
+      current = BinaryUtils::convertToBitSet(idx, symbolSize);
+      --idx;
+   }
+   if (std::find(symbols.begin(), symbols.end(), current) == symbols.end()) {
       result = bitSet(current);
    }
 }
@@ -219,17 +251,43 @@ BinaryUtils::append(bitSet& to, const bitSet& from)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// sliceBitSet
+// assign
+///////////////////////////////////////////////////////////////////////////////
+void
+BinaryUtils::assign(bitSet& to, const bitSet& from, size_t startIdx, size_t numBits)
+{
+   for (size_t i = 0; i < from.size(); ++i)
+      to[startIdx + i] = from[startIdx + i];
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// reverseSlice
 // Get slice from bitSet
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-BinaryUtils::sliceBitSet(const bitSet& b, size_t startIdx, size_t numBits)
+BinaryUtils::reverseSlice(const bitSet& b, size_t startIdx, size_t numBits)
 {
    bitSet result(numBits);
 
    for (size_t i = startIdx + numBits - 1; i < b.size() && i >= startIdx; --i) {
       result[numBits - i - 1 + startIdx] = b[i];
+   }
+   return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// slice
+// Get slice from bitSet
+///////////////////////////////////////////////////////////////////////////////
+
+bitSet
+BinaryUtils::slice(const bitSet& b, size_t startIdx, size_t numBits)
+{
+   bitSet result(numBits);
+
+   for (size_t i = startIdx; i < b.size() && i < startIdx + numBits; ++i) {
+      result[i - startIdx] = b[i];
    }
    return result;
 }
@@ -303,16 +361,16 @@ BinaryUtils::deserialize(const bitSet& data, size_t numBytes)
 {
    std::vector<bitSet> result;
 
-   bitSet currentSize = sliceBitSet(data, 0, numBytes * 8);
+   bitSet currentSize = reverseSlice(data, 0, numBytes * 8);
    size_t currentIdx = numBytes * 8;
    while (currentIdx + currentSize.to_ulong() <= data.size() && currentSize.to_ulong() > 0) {
-      result.push_back(sliceBitSet(data, currentIdx, currentSize.to_ulong()));
+      result.push_back(reverseSlice(data, currentIdx, currentSize.to_ulong()));
       currentIdx += currentSize.to_ulong();
 
-      if (currentIdx + numBytes * 8 >= data.size())
+      if (currentIdx + numBytes * 8 > data.size()) {
          break;
-
-      currentSize = sliceBitSet(data, currentIdx, numBytes * 8);
+      }
+      currentSize = reverseSlice(data, currentIdx, numBytes * 8);
       currentIdx += numBytes * 8;
    }
 

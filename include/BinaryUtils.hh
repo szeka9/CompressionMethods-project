@@ -45,6 +45,9 @@ getExpRandomData(size_t numBits, bool paddToBytes = false, size_t distribution =
 void
 findUnusedSymbol(const std::map<bitSet, bitSet>& encodingMap, bitSet& result, size_t symbolSize);
 
+void
+findUnusedSymbol(const bitSet& data, bitSet& result, size_t symbolSize);
+
 size_t
 hashValue(const bitSet&);
 
@@ -60,8 +63,14 @@ reverseAppend(bitSet& to, const bitSet& from);
 void
 append(bitSet& to, const bitSet& from);
 
+void
+assign(bitSet& to, const bitSet& from, size_t startIdx, size_t numBits);
+
 bitSet
-sliceBitSet(const bitSet& b, size_t startIdx, size_t numBits);
+reverseSlice(const bitSet& b, size_t startIdx, size_t numBits);
+
+bitSet
+slice(const bitSet& b, size_t startIdx, size_t numBits);
 
 size_t
 countZeros(const bitSet&);

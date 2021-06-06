@@ -1,16 +1,15 @@
 #ifndef HUFFMANTRANSDUCER_HH
 #define HUFFMANTRANSDUCER_HH
 
-#include "IDecoder.hh"
 #include "IEncoder.hh"
 
 #include <boost/unordered_map.hpp>
 #include <map>
 
-class HuffmanTransducer
-  : public IEncoder
-  , public IDecoder<HuffmanTransducer>
+class HuffmanTransducer : public IEncoder
 {
+   static const uint16_t mEncoderId = 0x0001;
+
  private:
    class state
    {
@@ -43,24 +42,30 @@ class HuffmanTransducer
 
  public:
    typedef boost::unordered_map<bitSet, double> CodeProbabilityMap;
-   HuffmanTransducer(CodeProbabilityMap& symbolMap, size_t symbolSize);
+   HuffmanTransducer(const bitSet& sourceData, size_t symbolSize);
+   HuffmanTransducer(size_t symbolSize);
    ~HuffmanTransducer();
 
    bitSet encodeSymbol(const bitSet& b) const;
    double getEntropy() const;
    double getAvgCodeLength() const;
+   static HuffmanTransducer* deserializerFactory(const bitSet&);
 
    // Inherited functions
    bitSet encode(const bitSet&) override;
    bitSet decode(const bitSet&) override;
-   bitSet serialize() override;
-   static HuffmanTransducer deserialize(const bitSet&);
+   bitSet serialize() const override;
    size_t getTableSize() const override;
    std::map<bitSet, bitSet> getEncodingMap() const override;
+   bool isValid() const override;
+   uint16_t getEncoderId() const override { return mEncoderId; };
+   void setup(const bitSet&) override;
+   void reset() override;
 
  private:
    HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, size_t symbolSize);
    void decodeChangeState(bool);
+   void setupByProbability(CodeProbabilityMap&& symbolMap);
 
    size_t mSymbolSize;
    bitSet mBuffer;

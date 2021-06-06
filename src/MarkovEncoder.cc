@@ -14,15 +14,23 @@ using namespace BinaryUtils;
 // MarkovEncoder
 ///////////////////////////////////////////////////////////////////////////////
 
-MarkovEncoder::MarkovEncoder(const bitSet& data,
-                             size_t symbolSize,
-                             double threshold,
-                             bitSet unusedSymbol = bitSet())
-  : mUnusedSymbol(unusedSymbol)
+MarkovEncoder::MarkovEncoder(const bitSet& data, size_t symbolSize, double threshold)
+  : mUnusedSymbol(bitSet())
   , mSymbolSize(symbolSize)
+  , mThreshold(threshold)
 {
-   mEncodingMap = createEncodingMap(computeMarkovChain(data, symbolSize), threshold);
+   setup(data);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// MarkovEncoder
+///////////////////////////////////////////////////////////////////////////////
+
+MarkovEncoder::MarkovEncoder(size_t symbolSize, double threshold)
+  : mUnusedSymbol(bitSet())
+  , mSymbolSize(symbolSize)
+  , mThreshold(threshold)
+{}
 
 ///////////////////////////////////////////////////////////////////////////////
 // MarkovEncoder - for deserialization
@@ -31,10 +39,37 @@ MarkovEncoder::MarkovEncoder(const bitSet& data,
 MarkovEncoder::MarkovEncoder(const std::map<bitSet, bitSet>& iSymbolMap,
                              bitSet iUnusedSymbol,
                              size_t iSymbolSize)
-  : mEncodingMap(iSymbolMap)
-  , mUnusedSymbol(iUnusedSymbol)
+  : /*mEncodingMap(iSymbolMap)
+  ,*/
+  mUnusedSymbol(iUnusedSymbol)
   , mSymbolSize(iSymbolSize)
-{}
+{
+   for (auto e : iSymbolMap)
+      mEncodingMap.emplace(e.first, e.second);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Setup source data
+///////////////////////////////////////////////////////////////////////////////
+
+void
+MarkovEncoder::setup(const bitSet& sourceData)
+{
+   reset();
+   findUnusedSymbol(sourceData, mUnusedSymbol, mSymbolSize);
+   mEncodingMap = createEncodingMap(computeMarkovChain(sourceData, mSymbolSize), mThreshold);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Reset encoder
+///////////////////////////////////////////////////////////////////////////////
+
+void
+MarkovEncoder::reset()
+{
+   mEncodingMap.clear();
+   mUnusedSymbol.clear();
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Generate probability map
@@ -50,18 +85,14 @@ MarkovEncoder::computeMarkovChain(const bitSet& data, size_t symbolSize)
    bitSet previousSymbol(symbolSize);
    bitSet currentSymbol(symbolSize);
 
-   for (size_t j = 0; j < symbolSize && j < data.size(); ++j)
-      previousSymbol[j] = data[j];
+   previousSymbol = slice(data, 0, symbolSize);
 
    for (size_t i = 0; i < data.size(); i += symbolSize) {
-      for (size_t j = 0; j < symbolSize; ++j)
-         currentSymbol[j] = data[i + j];
-
+      currentSymbol = slice(data, i, symbolSize);
       boost::unordered_map<bitSet, float> nextStates;
       result.emplace(previousSymbol, nextStates);
       result.at(previousSymbol).emplace(currentSymbol, 0);
       result.at(previousSymbol).at(currentSymbol) += 1;
-
       previousSymbol = currentSymbol;
    }
 
@@ -73,11 +104,11 @@ MarkovEncoder::computeMarkovChain(const bitSet& data, size_t symbolSize)
 // Example: key=0001, value=0110 means that the next symbol to 0001 is 0110.
 ///////////////////////////////////////////////////////////////////////////////
 
-std::map<bitSet, bitSet>
+boost::unordered_map<bitSet, bitSet>
 MarkovEncoder::createEncodingMap(const MarkovEncoder::MarkovChain& markovChain,
                                  float probabiltyThreshold)
 {
-   std::map<bitSet, bitSet> result;
+   boost::unordered_map<bitSet, bitSet> result;
    for (auto it = markovChain.begin(); it != markovChain.end(); ++it) {
       auto currentSymbol = it->first;
 
@@ -119,7 +150,10 @@ MarkovEncoder::getTableSize() const
 std::map<bitSet, bitSet>
 MarkovEncoder::getEncodingMap() const
 {
-   std::map<bitSet, bitSet> result(mEncodingMap);
+   std::map<bitSet, bitSet> result;
+   for (auto e : mEncodingMap) {
+      result.emplace(e.first, e.second);
+   }
    return result;
 }
 
@@ -127,9 +161,15 @@ MarkovEncoder::getEncodingMap() const
 // serialize
 ///////////////////////////////////////////////////////////////////////////////
 bitSet
-MarkovEncoder::serialize()
+MarkovEncoder::serialize() const
 {
    bitSet result;
+
+   if (!isValid()) {
+      return result;
+   }
+
+   reverseAppend(result, convertToBitSet(getEncoderId(), sizeof(uint16_t) * 8));
    reverseAppend(result, convertToBitSet(mEncodingMap.size(), S_WIDTH));
    reverseAppend(result, convertToBitSet(mSymbolSize, 8));
    reverseAppend(result, mUnusedSymbol);
@@ -144,27 +184,57 @@ MarkovEncoder::serialize()
 // deserialize
 ///////////////////////////////////////////////////////////////////////////////
 
-MarkovEncoder
-MarkovEncoder::deserialize(const bitSet& data)
+MarkovEncoder*
+MarkovEncoder::deserializerFactory(const bitSet& data)
 {
    std::map<bitSet, bitSet> result;
+   bitSet unusedSymbol;
+   size_t symbolSize = 0;
+
    size_t currentIdx = 0;
-
-   size_t numSymbols = sliceBitSet(data, currentIdx, S_WIDTH).to_ulong();
-   currentIdx += S_WIDTH;
-   size_t symbolSize = sliceBitSet(data, currentIdx, 8).to_ulong();
-   currentIdx += 8;
-   bitSet unusedSymbol = sliceBitSet(data, currentIdx, symbolSize);
-   currentIdx += symbolSize;
-
    size_t symbolCounter = 0;
+   size_t numSymbols = 0;
+
+   if (data.size() < sizeof(uint16_t) * 8) {
+      return new MarkovEncoder(result, unusedSymbol, symbolSize);
+   }
+
+   auto encoderId = reverseSlice(data, 0, sizeof(uint16_t) * 8).to_ulong();
+   currentIdx += sizeof(uint16_t) * 8;
+   if (encoderId != mEncoderId) {
+      return new MarkovEncoder(result, unusedSymbol, symbolSize);
+   }
+
+   if (data.size() > S_WIDTH + 8) {
+      numSymbols = reverseSlice(data, currentIdx, S_WIDTH).to_ulong();
+      currentIdx += S_WIDTH;
+      symbolSize = reverseSlice(data, currentIdx, 8).to_ulong();
+      currentIdx += 8;
+   } else {
+      return new MarkovEncoder(result, unusedSymbol, symbolSize);
+   }
+
+   if (data.size() > S_WIDTH + 8 + symbolSize) {
+      unusedSymbol = reverseSlice(data, currentIdx, symbolSize);
+      currentIdx += symbolSize;
+   } else {
+      symbolSize = 0;
+      return new MarkovEncoder(result, unusedSymbol, symbolSize);
+   }
+
    while (symbolCounter < numSymbols && currentIdx + symbolSize * 2 <= data.size()) {
-      result.emplace(sliceBitSet(data, currentIdx, symbolSize),
-                     sliceBitSet(data, currentIdx + symbolSize, symbolSize));
+      result.emplace(reverseSlice(data, currentIdx, symbolSize),
+                     reverseSlice(data, currentIdx + symbolSize, symbolSize));
       currentIdx += 2 * symbolSize;
       ++symbolCounter;
    }
-   return MarkovEncoder(result, unusedSymbol, symbolSize);
+
+   if (symbolCounter != numSymbols) {
+      result.clear();
+      unusedSymbol = bitSet();
+      symbolSize = 0;
+   }
+   return new MarkovEncoder(result, unusedSymbol, symbolSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,6 +244,10 @@ bitSet
 MarkovEncoder::encode(const bitSet& data)
 {
    bitSet result(data.size());
+
+   if (!isValid()) {
+      return result;
+   }
 
    bitSet currentSymbol(mSymbolSize);
    bitSet mapped(mSymbolSize);
@@ -191,12 +265,12 @@ MarkovEncoder::encode(const bitSet& data)
             mapped = bitSet(mSymbolSize);
       }
 
-   else
-      for (size_t i = 0; i < data.size(); i += mSymbolSize) {
-         for (size_t j = 0; j < mSymbolSize && j + i < data.size(); ++j)
-            currentSymbol[j] = data[j + i];
+   else {
+      assign(result, data, 0, mSymbolSize);
+      for (size_t i = mSymbolSize; i < data.size(); i += mSymbolSize) {
+         currentSymbol = slice(data, i, mSymbolSize);
 
-         if (i == 0 || currentSymbol != mapped)
+         if (currentSymbol != mapped)
             for (size_t j = 0; j < mSymbolSize && j + i < data.size(); ++j)
                result[i + j] = data[i + j];
          else
@@ -206,9 +280,9 @@ MarkovEncoder::encode(const bitSet& data)
          if (mEncodingMap.find(currentSymbol) != mEncodingMap.end())
             mapped = mEncodingMap.at(currentSymbol);
          else
-            mapped = bitSet(mSymbolSize);
+            mapped.clear();
       }
-
+   }
    return result;
 }
 
@@ -219,6 +293,10 @@ bitSet
 MarkovEncoder::decode(const bitSet& data)
 {
    bitSet result(data.size());
+
+   if (!isValid()) {
+      return result;
+   }
 
    bitSet currentSymbol(mSymbolSize);
    bitSet mapped(mSymbolSize);
@@ -255,4 +333,13 @@ MarkovEncoder::decode(const bitSet& data)
       }
 
    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// isValid
+///////////////////////////////////////////////////////////////////////////////
+bool
+MarkovEncoder::isValid() const
+{
+   return mEncodingMap.size() && mUnusedSymbol.size() && mSymbolSize;
 }

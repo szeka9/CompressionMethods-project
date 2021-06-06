@@ -3,6 +3,7 @@
 #include "MarkovEncoder.hh"
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -120,9 +121,9 @@ sliceBitSet_default_match()
 {
    bool result = true;
    bitSet b(std::string("0101110"));
-   result = result && sliceBitSet(b, 0, 2) == bitSet(std::string("01"));
-   result = result && sliceBitSet(b, 3, 4) == bitSet(std::string("1010"));
-   result = result && sliceBitSet(b, 0, 7) == bitSet(std::string("0111010"));
+   result = result && reverseSlice(b, 0, 2) == bitSet(std::string("01"));
+   result = result && reverseSlice(b, 3, 4) == bitSet(std::string("1010"));
+   result = result && reverseSlice(b, 0, 7) == bitSet(std::string("0111010"));
    return result;
 }
 
@@ -149,8 +150,7 @@ deserialize_huffman_encoding_match()
 {
 
    auto inputData = readBinary("../samples/text_data.txt", 0);
-   auto stats = getStatistics(inputData, DEF_SYMBOLSIZE);
-   HuffmanTransducer h(stats, DEF_SYMBOLSIZE);
+   HuffmanTransducer h(inputData, DEF_SYMBOLSIZE);
 
    auto serialized = h.serialize();
    auto encoded = h.encode(inputData);
@@ -161,7 +161,8 @@ deserialize_huffman_encoding_match()
    auto serialized_all = serialize(b, 3);
    auto bRes = deserialize(serialized_all, 3);
 
-   HuffmanTransducer deserilizedHuffman = HuffmanTransducer::deserialize(bRes[0]);
+   auto deserilizedHuffman =
+     std::unique_ptr<HuffmanTransducer>(HuffmanTransducer::deserializerFactory(bRes[0]));
 
    /*printConsoleLine("Symbols");
    for (auto e : h.getEncodingMap()) {
@@ -174,13 +175,13 @@ deserialize_huffman_encoding_match()
    }*/
 
    // check serialization + decoding
-   if (inputData != deserilizedHuffman.decode(bRes[1])) {
+   if (inputData != deserilizedHuffman->decode(bRes[1])) {
       std::cout << "Deserialization failed for decoding!" << std::endl;
       return false;
    }
 
    // check serialization + encoding
-   if (h.encode(inputData) != deserilizedHuffman.encode(inputData)) {
+   if (h.encode(inputData) != deserilizedHuffman->encode(inputData)) {
       std::cout << "Deserialization failed for encoding!" << std::endl;
       return false;
    }
@@ -193,14 +194,13 @@ deserialize_markov_encoding_match()
 {
 
    auto inputData = readBinary("../samples/text_data.txt", 0);
-   auto stats = getStatistics(inputData, DEF_SYMBOLSIZE);
-   HuffmanTransducer h(stats, DEF_SYMBOLSIZE);
+   HuffmanTransducer h(inputData, DEF_SYMBOLSIZE);
 
    bitSet unusedSymbol;
-   findUnusedSymbol(h.getEncodingMap(), unusedSymbol, DEF_SYMBOLSIZE);
-   MarkovEncoder m(inputData, DEF_SYMBOLSIZE, DEF_PROBABILITY_THRESHOLD, unusedSymbol);
+   MarkovEncoder m(inputData, DEF_SYMBOLSIZE, DEF_PROBABILITY_THRESHOLD);
 
-   if (MarkovEncoder::deserialize(m.serialize()).getEncodingMap() != m.getEncodingMap()) {
+   auto m_ = std::unique_ptr<MarkovEncoder>(MarkovEncoder::deserializerFactory(m.serialize()));
+   if (m_->getEncodingMap() != m.getEncodingMap()) {
       std::cout << "Encoding map does not match!" << std::endl;
       return false;
    }

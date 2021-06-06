@@ -64,8 +64,9 @@ void
 HuffmanTransducer::endState::writeBuffer()
 {
    bitSet currentSymbol = context->mDecodingMap.at(this);
-   for (size_t i = 0; i < currentSymbol.size(); ++i)
+   for (size_t i = 0; i < currentSymbol.size(); ++i) {
       context->mBuffer.push_back(currentSymbol[i]);
+   }
 }
 
 HuffmanTransducer::state*
@@ -86,12 +87,107 @@ HuffmanTransducer::endState::forward(bool b)
 // HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(CodeProbabilityMap& symbolMap, size_t symbolSize)
+HuffmanTransducer::HuffmanTransducer(const bitSet& sourceData, size_t symbolSize)
   : mSymbolSize(symbolSize)
   , mRootState(new state())
   , mCurrentState(mRootState)
 {
+   setupByProbability(getStatistics(sourceData, symbolSize));
+}
 
+///////////////////////////////////////////////////////////////////////////////
+// HuffmanTransducer - only for deserialization
+// Limitation: code probability, avg. length and entropy are not serialized
+///////////////////////////////////////////////////////////////////////////////
+
+HuffmanTransducer::HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, size_t symbolSize)
+  : mSymbolSize(symbolSize)
+  , mRootState(new state())
+  , mCurrentState(mRootState)
+{
+   try {
+      for (auto it = symbolMap.begin(); it != symbolMap.end(); ++it) {
+         bitSet encoded = it->second;
+
+         // Generate tree
+         for (size_t i = 0; i < it->second.size(); ++i) {
+            if (mCurrentState->next(encoded[i]) == nullptr) {
+               if (i == it->second.size() - 1) {
+                  auto e = new endState(this, mRootState, mRootState);
+                  mCurrentState->stateTransitions[encoded[i]] = e;
+                  static_cast<endState*>(mCurrentState->stateTransitions[encoded[i]])->encoded =
+                    it->second;
+                  mEncodingMap.emplace(it->first, e);
+                  mDecodingMap.emplace(e, it->first);
+               } else {
+                  mCurrentState->stateTransitions[encoded[i]] = new state();
+               }
+            } else if (i == it->second.size() - 1) {
+               throw std::runtime_error("Symbol collision");
+            }
+            mCurrentState = mCurrentState->next(encoded[i]);
+         }
+         mCurrentState = mRootState;
+      }
+   } catch (...) {
+      reset();
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// HuffmanTransducer
+///////////////////////////////////////////////////////////////////////////////
+
+HuffmanTransducer::HuffmanTransducer(size_t symbolSize)
+  : mSymbolSize(symbolSize)
+  , mRootState(new state())
+  , mCurrentState(mRootState)
+{}
+
+///////////////////////////////////////////////////////////////////////////////
+// ~HuffmanTransducer
+///////////////////////////////////////////////////////////////////////////////
+HuffmanTransducer::~HuffmanTransducer()
+{
+   delete mRootState;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Setup source data
+///////////////////////////////////////////////////////////////////////////////
+
+void
+HuffmanTransducer::setup(const bitSet& sourceData)
+{
+   reset();
+   setupByProbability(getStatistics(sourceData, mSymbolSize));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Reset encoder
+///////////////////////////////////////////////////////////////////////////////
+
+void
+HuffmanTransducer::reset()
+{
+   mBuffer.clear();
+   delete mRootState;
+   mRootState = new state();
+   mCurrentState = mRootState;
+   mEntropy = 0;
+
+   mEncodingMap.clear();
+   mDecodingMap.clear();
+   mCodeProbability.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Setup source data
+///////////////////////////////////////////////////////////////////////////////
+
+void
+HuffmanTransducer::setupByProbability(CodeProbabilityMap&& symbolMap)
+{
    // Process the symbol map (create end states)
    std::multimap<double, state*> grouppingMap;
 
@@ -169,56 +265,6 @@ HuffmanTransducer::HuffmanTransducer(CodeProbabilityMap& symbolMap, size_t symbo
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// HuffmanTransducer - only for deserialization
-// Limitation: code probability, avg. length and entropy are not serialized
-///////////////////////////////////////////////////////////////////////////////
-
-HuffmanTransducer::HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, size_t symbolSize)
-  : mSymbolSize(symbolSize)
-  , mRootState(new state())
-  , mCurrentState(mRootState)
-{
-   try {
-      for (auto it = symbolMap.begin(); it != symbolMap.end(); ++it) {
-         bitSet encoded = it->second;
-
-         // Generate tree
-         for (size_t i = 0; i < it->second.size(); ++i) {
-            if (mCurrentState->next(encoded[i]) == nullptr) {
-               if (i == it->second.size() - 1) {
-                  auto e = new endState(this, mRootState, mRootState);
-                  mCurrentState->stateTransitions[encoded[i]] = e;
-                  static_cast<endState*>(mCurrentState->stateTransitions[encoded[i]])->encoded =
-                    it->second;
-                  mEncodingMap.emplace(it->first, e);
-                  mDecodingMap.emplace(e, it->first);
-               } else {
-                  mCurrentState->stateTransitions[encoded[i]] = new state();
-               }
-            } else if (i == it->second.size() - 1) {
-               throw std::runtime_error("Symbol collision");
-            }
-            mCurrentState = mCurrentState->next(encoded[i]);
-         }
-         mCurrentState = mRootState;
-      }
-   } catch (...) {
-      mSymbolSize = 0;
-      delete mRootState;
-      mRootState = nullptr;
-      mCurrentState = nullptr;
-   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// ~HuffmanTransducer
-///////////////////////////////////////////////////////////////////////////////
-HuffmanTransducer::~HuffmanTransducer()
-{
-   delete mRootState;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // encodeSymbol
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -239,6 +285,11 @@ bitSet
 HuffmanTransducer::encode(const bitSet& data)
 {
    bitSet output;
+
+   if (!isValid()) {
+      return output;
+   }
+
    bitSet currentSymbol(mSymbolSize);
    mCurrentState = mRootState;
 
@@ -279,12 +330,19 @@ HuffmanTransducer::decodeChangeState(bool b)
 bitSet
 HuffmanTransducer::decode(const bitSet& data)
 {
-   for (size_t i = 0; i < data.size(); ++i)
+   bitSet output;
+
+   if (!isValid()) {
+      return output;
+   }
+
+   for (size_t i = 0; i < data.size(); ++i) {
       decodeChangeState(data[i]);
+   }
    decodeChangeState(0); // write buffer with trailing bit
    mCurrentState = mRootState;
 
-   bitSet output = std::move(mBuffer);
+   output = std::move(mBuffer);
    mBuffer.clear();
    return output;
 }
@@ -348,9 +406,15 @@ HuffmanTransducer::getTableSize() const
 ///////////////////////////////////////////////////////////////////////////////
 
 bitSet
-HuffmanTransducer::serialize()
+HuffmanTransducer::serialize() const
 {
    bitSet serialized;
+
+   if (!isValid()) {
+      return serialized;
+   }
+
+   reverseAppend(serialized, convertToBitSet(getEncoderId(), sizeof(uint16_t) * 8));
 
    // number of symbols
    auto encodingMap = getEncodingMap();
@@ -415,33 +479,62 @@ HuffmanTransducer::serialize()
 // deserialize
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer
-HuffmanTransducer::deserialize(const bitSet& data)
+HuffmanTransducer*
+HuffmanTransducer::deserializerFactory(const bitSet& data)
 {
    std::map<bitSet, bitSet> result;
+   size_t currentIdx = 0;
 
-   auto numSymbols = sliceBitSet(data, 0, 3 * 8).to_ulong();
-   auto symbolsize = sliceBitSet(data, 3 * 8, 8).to_ulong();
-   auto currentSymbol = sliceBitSet(data, 4 * 8, symbolsize);
+   if (data.size() < sizeof(uint16_t) * 8) {
+      return new HuffmanTransducer(result, 0);
+   }
 
-   size_t symbolCounter = 1;
-   size_t currentIdx = 4 * 8 + symbolsize;
+   auto encoderId = reverseSlice(data, 0, sizeof(uint16_t) * 8).to_ulong();
+   currentIdx += sizeof(uint16_t) * 8;
+   if (encoderId != mEncoderId) {
+      return new HuffmanTransducer(result, 0);
+   }
 
-   while (symbolCounter < numSymbols + 1) {
-      auto entrySize = sliceBitSet(data, currentIdx, 3).to_ulong();
+   size_t numSymbols = 0;
+   size_t symbolsize = 0;
+
+   if (data.size() > currentIdx + 4 * 8) {
+      numSymbols = reverseSlice(data, currentIdx, 3 * 8).to_ulong();
+      currentIdx += 3 * 8;
+      symbolsize = reverseSlice(data, currentIdx, 8).to_ulong();
+      currentIdx += 8;
+   } else {
+      return new HuffmanTransducer(result, 0);
+   }
+
+   bitSet currentSymbol;
+   if (data.size() > currentIdx + symbolsize) {
+      currentSymbol = reverseSlice(data, currentIdx, symbolsize);
+      currentIdx += symbolsize;
+   } else {
+      return new HuffmanTransducer(result, 0);
+   }
+
+   size_t symbolCounter = 0;
+   while (symbolCounter < numSymbols && currentIdx + 3 <= data.size()) {
+      auto entrySize = reverseSlice(data, currentIdx, 3).to_ulong();
 
       currentIdx += 3;
+      if (currentIdx + entrySize * 8 >= data.size())
+         break;
 
-      auto entry = sliceBitSet(data, currentIdx, entrySize * 8);
+      auto entry = reverseSlice(data, currentIdx, entrySize * 8);
       auto encodedSize =
-        sliceBitSet(copyReverseBits(entry), 0, findMostZeros(copyReverseBits(entry)));
-      auto offs = sliceBitSet(entry, 0, findMostZeros(entry));
+        reverseSlice(copyReverseBits(entry), 0, findMostZeros(copyReverseBits(entry)));
+      auto offs = reverseSlice(entry, 0, findMostZeros(entry));
       reverseBits(encodedSize);
       reverseBits(offs);
 
       currentIdx += entrySize * 8;
+      if (currentIdx + encodedSize.to_ulong() > data.size())
+         break;
 
-      auto encoded = sliceBitSet(data, currentIdx, encodedSize.to_ulong());
+      auto encoded = reverseSlice(data, currentIdx, encodedSize.to_ulong());
       currentIdx += encodedSize.to_ulong();
       result.emplace(currentSymbol, encoded);
 
@@ -449,7 +542,12 @@ HuffmanTransducer::deserialize(const bitSet& data)
       symbolCounter += 1;
    }
 
-   return HuffmanTransducer(result, symbolsize);
+   if (symbolCounter != numSymbols) {
+      result.clear();
+      symbolsize = 0;
+   }
+
+   return new HuffmanTransducer(result, symbolsize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -463,4 +561,14 @@ HuffmanTransducer::getEncodingMap() const
       result.emplace(mDecodingMap.at(p.second), p.second->encoded);
    }
    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// isValid
+///////////////////////////////////////////////////////////////////////////////
+bool
+HuffmanTransducer::isValid() const
+{
+   return mRootState && mCurrentState && mSymbolSize && mEncodingMap.size() &&
+          mDecodingMap.size() && mEncodingMap.size() == mDecodingMap.size();
 }
