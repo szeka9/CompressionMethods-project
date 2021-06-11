@@ -16,7 +16,7 @@ The idea of this project is precompressor based on Markov chains, combined with 
   5. execute the encoding on the input data using the encoding table (starting from the first symbol)
   6. apply Huffman encoding (or other arbitrary compression algorithm)
 
-The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is noticable difference in the compression (15-20%). However, further testing and evaluation is needed since certain steps of the algorithm use predefined constants.
+The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is noticable improvement in the compression (15-20%). However, further testing and evaluation is needed since certain steps of the algorithm use predefined constants.
 
 The implementation does support serializing the compressed data, however the file size should not exceed 6MB, since this feature is experimental.
 
