@@ -7,7 +7,7 @@
 3. custom serialization format (for Huffman encoding)
 4. a general framework to chain different encoders inheriting from a common interface
 
-The idea of this project is precompressor based on Markov chains, combined with a Huffman encoder. The project aims to reduce the entropy of an arbitrary binary data source (before compression) so that an arbitrary entropy based compression algorithm can achieve better compression ratio. In orderd to achieve this, I implemented a general framework that can chain different steps of the compression sequentially. This way, it is simple to develop and test new algorithms as well. 
+The idea of this project is precompressor based on Markov chains, combined with a Huffman encoder. The project aims to reduce the entropy of an arbitrary binary data source (before compression) so that an entropy based compression algorithm can achieve better compression ratio. In orderd to achieve this, I implemented a general framework that can chain different steps of the compression sequentially. This way, it is simple to develop, test and combine new algorithms as well. 
 
 <b>Precompressor pseudocode:</b>
   1. measure the frequency of each symbol transition (for consequent symbols)
