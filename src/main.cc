@@ -15,6 +15,7 @@ using namespace BinaryUtils;
 #define DEF_SYMBOLSIZE 16             // Note: does not work for odd byte sizes
 #define DEF_PROBABILITY_THRESHOLD 0.4 // State transitions with >40% probability
 #define DEF_NUM_SLICES 8
+#define DEF_HUFF_THREADS 8
 
 ///////////////////////////////////////////////////////////////////////////////
 // utility functions
@@ -140,7 +141,7 @@ demo(const std::string& inputName, const std::string& outputName)
              << (precompressedSize) / 8000.0 << " KB" << std::endl;
 
    t1 = std::chrono::high_resolution_clock::now();
-   writeBinary(outputName, markovDecoded, false);
+   writeBinary(outputName, markovDecoded);
    t2 = std::chrono::high_resolution_clock::now();
    printDurationMessage("Writing into file", t1, t2);
 
@@ -178,13 +179,13 @@ encode(const std::string& inputName, const std::string& outputName)
 
    // Markov
    MarkovEncoder m(inputData, DEF_SYMBOLSIZE, DEF_PROBABILITY_THRESHOLD);
-   bitSet markovEncoded = m.encode(inputData);
-   bitSet serializedMarkov = m.serialize();
+   auto markovEncoded = m.encode(inputData);
+   auto serializedMarkov = m.serialize();
 
    // Huffman
-   HuffmanTransducer h(markovEncoded, DEF_SYMBOLSIZE);
-   bitSet encoded = h.encode(markovEncoded);
-   bitSet serializedHuffman = h.serialize();
+   HuffmanTransducer h(markovEncoded, DEF_SYMBOLSIZE, DEF_HUFF_THREADS);
+   auto encoded = h.encode(markovEncoded);
+   auto serializedHuffman = h.serialize();
 
    // Serialize
    std::vector<bitSet> b;
@@ -193,7 +194,7 @@ encode(const std::string& inputName, const std::string& outputName)
    b.push_back(encoded);
 
    bitSet serialized_all = serialize(b, 4);
-   writeBinary(outputName, serialized_all, true);
+   writeBinary(outputName, serialized_all);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -214,13 +215,13 @@ decode(const std::string& inputName, const std::string& outputName)
    HuffmanTransducer* h = HuffmanTransducer::deserializerFactory(serialized[0]);
    MarkovEncoder* m = MarkovEncoder::deserializerFactory(serialized[1]);
 
-   bitSet huffmanDecoded = h->decode(serialized[2]);
-   bitSet markovDecoded = m->decode(huffmanDecoded);
+   auto huffmanDecoded = h->decode(serialized[2]);
+   auto markovDecoded = m->decode(huffmanDecoded);
 
    delete h;
    delete m;
 
-   writeBinary(outputName, markovDecoded, true);
+   writeBinary(outputName, markovDecoded);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -234,7 +235,7 @@ chainEncode(const std::string& inputName, const std::string& outputName)
    bitSet inputData = readBinary(inputName, 0);
 
    auto m = std::make_unique<MarkovEncoder>(DEF_SYMBOLSIZE, DEF_PROBABILITY_THRESHOLD);
-   auto h = std::make_unique<HuffmanTransducer>(DEF_SYMBOLSIZE);
+   auto h = std::make_unique<HuffmanTransducer>(DEF_SYMBOLSIZE, DEF_HUFF_THREADS);
    auto p = std::make_unique<Padder>(Padder::PaddingType::WholeBytes);
 
    // EnocderChain
@@ -246,7 +247,7 @@ chainEncode(const std::string& inputName, const std::string& outputName)
    auto encoded = c.encode(inputData);
 
    std::vector<bitSet> b = { c.serialize(), encoded };
-   writeBinary(outputName, serialize(b, 4), true);
+   writeBinary(outputName, serialize(b, 4));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -265,9 +266,9 @@ chainDecode(const std::string& inputName, const std::string& outputName)
    }
 
    auto d = std::unique_ptr<EncoderChain>(EncoderChain::deserializerFactory(serialized[0]));
-   if (d) {
-      bitSet decoded = d->decode(serialized[1]);
-      writeBinary(outputName, decoded, true);
+   if (d && d->isValid()) {
+      auto decoded = d->decode(serialized[1]);
+      writeBinary(outputName, decoded);
    } else {
       throw std::runtime_error("Could not create the deserializer.");
    }
@@ -284,9 +285,8 @@ chainSlicedEncode(const std::string& inputName, const std::string& outputName)
    bitSet inputData = readBinary(inputName, 0);
    std::vector<bitSet> slices;
    for (size_t i = 0; i < DEF_NUM_SLICES; ++i) {
-      slices.push_back(copyReverseBits(reverseSlice(
-        inputData, (inputData.size() / DEF_NUM_SLICES) * i, inputData.size() / DEF_NUM_SLICES)));
-      std::cout << slices[i].size() << std::endl;
+      slices.push_back(slice(
+        inputData, (inputData.size() / DEF_NUM_SLICES) * i, inputData.size() / DEF_NUM_SLICES));
    }
 
    std::vector<bitSet> serialized(DEF_NUM_SLICES);
@@ -296,15 +296,13 @@ chainSlicedEncode(const std::string& inputName, const std::string& outputName)
    for (size_t i = 0; i < DEF_NUM_SLICES; ++i) {
       auto n = std::make_unique<Padder>(Padder::PaddingType::EvenBytes);
       auto m = std::make_unique<MarkovEncoder>(DEF_SYMBOLSIZE, DEF_PROBABILITY_THRESHOLD);
-      auto h = std::make_unique<HuffmanTransducer>(DEF_SYMBOLSIZE);
-      auto p = std::make_unique<Padder>(Padder::PaddingType::EvenBytes);
+      auto h = std::make_unique<HuffmanTransducer>(DEF_SYMBOLSIZE, DEF_HUFF_THREADS);
 
       // EnocderChain
       EncoderChain c;
       c.addEncoder(std::move(n));
       c.addEncoder(std::move(m));
       c.addEncoder(std::move(h));
-      c.addEncoder(std::move(p));
 
       encoded[i] = c.encode(slices[i]);
       serialized[i] = c.serialize();
@@ -314,7 +312,7 @@ chainSlicedEncode(const std::string& inputName, const std::string& outputName)
    auto mergedSlices = serialize(encoded, 4);
    auto merged = serialize(std::vector<bitSet>{ mergedSerialized, mergedSlices }, 4);
 
-   writeBinary(outputName, merged, true);
+   writeBinary(outputName, merged);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -324,7 +322,6 @@ chainSlicedEncode(const std::string& inputName, const std::string& outputName)
 void
 chainSlicedDecode(const std::string& inputName, const std::string& outputName)
 {
-
    bitSet inputData = readBinary(inputName, 0);
 
    std::vector<bitSet> serialized = deserialize(inputData, 4);
@@ -344,7 +341,7 @@ chainSlicedDecode(const std::string& inputName, const std::string& outputName)
    for (size_t i = 0; i < DEF_NUM_SLICES; ++i) {
       auto d =
         std::unique_ptr<EncoderChain>(EncoderChain::deserializerFactory(serializedEncoder[i]));
-      if (d) {
+      if (d && d->isValid()) {
          auto b = d->decode(slices[i]);
          decodedSlices[i] = b;
       } else {
@@ -354,9 +351,9 @@ chainSlicedDecode(const std::string& inputName, const std::string& outputName)
 
    bitSet merged;
    for (auto b : decodedSlices) {
-      reverseAppend(merged, copyReverseBits(b));
+      append(merged, b);
    }
-   writeBinary(outputName, merged, true);
+   writeBinary(outputName, merged);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

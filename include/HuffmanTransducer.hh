@@ -42,8 +42,8 @@ class HuffmanTransducer : public IEncoder
 
  public:
    typedef boost::unordered_map<bitSet, double> CodeProbabilityMap;
-   HuffmanTransducer(const bitSet& sourceData, size_t symbolSize);
-   HuffmanTransducer(size_t symbolSize);
+   HuffmanTransducer(const bitSet& sourceData, size_t symbolSize, size_t numThreads = 1);
+   HuffmanTransducer(size_t symbolSize, size_t numThreads = 1);
    ~HuffmanTransducer();
 
    bitSet encodeSymbol(const bitSet& b) const;
@@ -63,11 +63,14 @@ class HuffmanTransducer : public IEncoder
    void reset() override;
 
  private:
-   HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, size_t symbolSize);
+   HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap,
+                     size_t symbolSize,
+                     size_t numThreads = 1);
    void decodeChangeState(bool);
    void setupByProbability(CodeProbabilityMap&& symbolMap);
 
    size_t mSymbolSize;
+   size_t mNumThreads;
    bitSet mBuffer;
    state* mRootState;
    state* mCurrentState;

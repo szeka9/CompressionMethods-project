@@ -55,7 +55,7 @@ uint16_t
 EncoderChain::readEncoderId(const bitSet& b)
 {
    if (b.size() > sizeof(uint16_t) * 8) {
-      return reverseSlice(b, 0, sizeof(uint16_t) * 8).to_ulong();
+      return slice(b, 0, sizeof(uint16_t) * 8).to_ulong();
    }
    return 0x0000;
 }
@@ -101,6 +101,7 @@ EncoderChain::serialize() const
                                   std::to_string(e->getEncoderId()) + ")");
       }
    }
+
    return BinaryUtils::serialize(serialized, 4);
 }
 

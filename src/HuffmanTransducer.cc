@@ -87,8 +87,9 @@ HuffmanTransducer::endState::forward(bool b)
 // HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(const bitSet& sourceData, size_t symbolSize)
+HuffmanTransducer::HuffmanTransducer(const bitSet& sourceData, size_t symbolSize, size_t numThreads)
   : mSymbolSize(symbolSize)
+  , mNumThreads(numThreads)
   , mRootState(new state())
   , mCurrentState(mRootState)
 {
@@ -100,8 +101,11 @@ HuffmanTransducer::HuffmanTransducer(const bitSet& sourceData, size_t symbolSize
 // Limitation: code probability, avg. length and entropy are not serialized
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, size_t symbolSize)
+HuffmanTransducer::HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap,
+                                     size_t symbolSize,
+                                     size_t numThreads)
   : mSymbolSize(symbolSize)
+  , mNumThreads(numThreads)
   , mRootState(new state())
   , mCurrentState(mRootState)
 {
@@ -138,8 +142,9 @@ HuffmanTransducer::HuffmanTransducer(const std::map<bitSet, bitSet>& symbolMap, 
 // HuffmanTransducer
 ///////////////////////////////////////////////////////////////////////////////
 
-HuffmanTransducer::HuffmanTransducer(size_t symbolSize)
+HuffmanTransducer::HuffmanTransducer(size_t symbolSize, size_t numThreads)
   : mSymbolSize(symbolSize)
+  , mNumThreads(numThreads)
   , mRootState(new state())
   , mCurrentState(mRootState)
 {}
@@ -290,28 +295,47 @@ HuffmanTransducer::encode(const bitSet& data)
       return output;
    }
 
-   bitSet currentSymbol(mSymbolSize);
-   mCurrentState = mRootState;
+   for (size_t i = 0; i < data.size(); i += mSymbolSize)
+      append(output, mEncodingMap.at(slice(data, i, mSymbolSize))->encoded);
 
-   for (size_t i = 0; i < data.size(); i += mSymbolSize) {
-
-      for (size_t j = 0; j < mSymbolSize; ++j) {
-         currentSymbol[j] = data[j + i];
-      }
-
-      auto encoded = encodeSymbol(currentSymbol);
-
-      for (size_t j = 0; j < encoded.size(); ++j) {
-         output.push_back(encoded[j]);
-      }
-
-      // Removed for speedup
-      /*if (mCurrentState != mRootState) {
-         throw std::runtime_error("Did not return to root state!");
-      }*/
-   }
    return output;
 }
+
+/*
+bitSet
+HuffmanTransducer::encode(const bitSet& data)
+{
+
+   bitSet output;
+   std::vector<bitSet> buffers(mNumThreads);
+
+   if (!isValid()) {
+      return output;
+   }
+
+   mCurrentState = mRootState;
+
+   size_t numSymbols = data.size() / mSymbolSize;
+   size_t increment = std::floor(numSymbols / mNumThreads) * mSymbolSize;
+
+#pragma omp parallel for
+   for (size_t n = 0; n < mNumThreads; ++n) {
+      bitSet currentSymbol(mSymbolSize);
+      for (size_t i = n * increment;
+           i < (n + 1) * increment || (n == mNumThreads - 1 && i < data.size());
+           i += mSymbolSize) {
+         currentSymbol = slice(data, i, mSymbolSize);
+         auto encoded = encodeSymbol(currentSymbol);
+         for (size_t j = 0; j < encoded.size(); ++j) {
+            buffers[n].push_back(encoded[j]);
+         }
+      }
+   }
+   for (auto b : buffers) {
+      append(output, b);
+   }
+   return output;
+}*/
 
 ///////////////////////////////////////////////////////////////////////////////
 // decodeChangeState
@@ -414,12 +438,12 @@ HuffmanTransducer::serialize() const
       return serialized;
    }
 
-   reverseAppend(serialized, convertToBitSet(getEncoderId(), sizeof(uint16_t) * 8));
+   append(serialized, convertToBitSet(getEncoderId(), sizeof(uint16_t) * 8));
 
    // number of symbols
    auto encodingMap = getEncodingMap();
    auto bSize = convertToBitSet(encodingMap.size(), 3 * 8);
-   reverseAppend(serialized, bSize);
+   append(serialized, bSize);
 
    // symbol size and start symbol
    auto it = encodingMap.begin();
@@ -427,8 +451,8 @@ HuffmanTransducer::serialize() const
    auto bSymbolSize = convertToBitSet(mSymbolSize, 1 * 8);
    if (bSymbolSize.size() > 8)
       throw std::runtime_error("Symbol size takes more than one byte!");
-   reverseAppend(serialized, bSymbolSize);
-   reverseAppend(serialized, currentSymbol);
+   append(serialized, bSymbolSize);
+   append(serialized, currentSymbol);
 
    bitSet nextSymbol;
    bitSet bOffset;
@@ -450,7 +474,6 @@ HuffmanTransducer::serialize() const
 
       // Encoded size, offset, zero separators
       auto bEncodedSize = convertToBitSet(it->second.size());
-      reverseBits(bEncodedSize);
       auto numSeparator = countZeros(bOffset) > countZeros(bEncodedSize)
                             ? countZeros(bOffset) + 1
                             : countZeros(bEncodedSize) + 1;
@@ -463,11 +486,11 @@ HuffmanTransducer::serialize() const
       auto bEntrySize = convertToBitSet(entrySize, 3);
 
       // Write to output
-      reverseAppend(serialized, bEntrySize);
-      reverseAppend(serialized, bEncodedSize);
-      reverseAppend(serialized, bitSet(numSeparator));
-      reverseAppend(serialized, bOffset);
-      reverseAppend(serialized, it->second);
+      append(serialized, bEntrySize);
+      append(serialized, bEncodedSize);
+      append(serialized, bitSet(numSeparator));
+      append(serialized, copyReverseBits(bOffset));
+      append(serialized, it->second);
 
       currentSymbol = nextSymbol;
    }
@@ -489,7 +512,7 @@ HuffmanTransducer::deserializerFactory(const bitSet& data)
       return new HuffmanTransducer(result, 0);
    }
 
-   auto encoderId = reverseSlice(data, 0, sizeof(uint16_t) * 8).to_ulong();
+   auto encoderId = slice(data, 0, sizeof(uint16_t) * 8).to_ulong();
    currentIdx += sizeof(uint16_t) * 8;
    if (encoderId != mEncoderId) {
       return new HuffmanTransducer(result, 0);
@@ -499,9 +522,9 @@ HuffmanTransducer::deserializerFactory(const bitSet& data)
    size_t symbolsize = 0;
 
    if (data.size() > currentIdx + 4 * 8) {
-      numSymbols = reverseSlice(data, currentIdx, 3 * 8).to_ulong();
+      numSymbols = slice(data, currentIdx, 3 * 8).to_ulong();
       currentIdx += 3 * 8;
-      symbolsize = reverseSlice(data, currentIdx, 8).to_ulong();
+      symbolsize = slice(data, currentIdx, 8).to_ulong();
       currentIdx += 8;
    } else {
       return new HuffmanTransducer(result, 0);
@@ -509,7 +532,7 @@ HuffmanTransducer::deserializerFactory(const bitSet& data)
 
    bitSet currentSymbol;
    if (data.size() > currentIdx + symbolsize) {
-      currentSymbol = reverseSlice(data, currentIdx, symbolsize);
+      currentSymbol = slice(data, currentIdx, symbolsize);
       currentIdx += symbolsize;
    } else {
       return new HuffmanTransducer(result, 0);
@@ -517,24 +540,21 @@ HuffmanTransducer::deserializerFactory(const bitSet& data)
 
    size_t symbolCounter = 0;
    while (symbolCounter < numSymbols && currentIdx + 3 <= data.size()) {
-      auto entrySize = reverseSlice(data, currentIdx, 3).to_ulong();
+      auto entrySize = slice(data, currentIdx, 3).to_ulong();
 
       currentIdx += 3;
       if (currentIdx + entrySize * 8 >= data.size())
          break;
 
-      auto entry = reverseSlice(data, currentIdx, entrySize * 8);
-      auto encodedSize =
-        reverseSlice(copyReverseBits(entry), 0, findMostZeros(copyReverseBits(entry)));
-      auto offs = reverseSlice(entry, 0, findMostZeros(entry));
-      reverseBits(encodedSize);
-      reverseBits(offs);
+      auto entry = slice(data, currentIdx, entrySize * 8);
+      auto encodedSize = slice(entry, 0, findMostZeros(entry));
+      auto offs = slice(copyReverseBits(entry), 0, findMostZeros(copyReverseBits(entry)));
 
       currentIdx += entrySize * 8;
       if (currentIdx + encodedSize.to_ulong() > data.size())
          break;
 
-      auto encoded = reverseSlice(data, currentIdx, encodedSize.to_ulong());
+      auto encoded = slice(data, currentIdx, encodedSize.to_ulong());
       currentIdx += encodedSize.to_ulong();
       result.emplace(currentSymbol, encoded);
 

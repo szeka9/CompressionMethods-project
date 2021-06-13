@@ -30,8 +30,12 @@ typedef boost::unordered_map<bitSet, double> CodeProbabilityMap;
 
 bitSet
 readBinary(const std::string& inputPath, size_t maxSize);
+
 void
-writeBinary(const std::string& outputPath, const bitSet& data, bool paddToBytes);
+writeBinary(const std::string& outputPath, const bitSet& data);
+
+void
+writeBinary(const std::string& outputPath, const std::vector<bitSet>& data);
 
 bitSet
 convertToBitSet(size_t number, size_t numBits = 0);
@@ -58,16 +62,14 @@ bitSet
 copyReverseBits(const bitSet&);
 
 void
-reverseAppend(bitSet& to, const bitSet& from);
-
-void
 append(bitSet& to, const bitSet& from);
 
 void
-assign(bitSet& to, const bitSet& from, size_t startIdx, size_t numBits);
-
-bitSet
-reverseSlice(const bitSet& b, size_t startIdx, size_t numBits);
+assign(bitSet& to,
+       const bitSet& from,
+       size_t startIdx_to,
+       size_t numBits,
+       size_t startIdx_from = 0);
 
 bitSet
 slice(const bitSet& b, size_t startIdx, size_t numBits);

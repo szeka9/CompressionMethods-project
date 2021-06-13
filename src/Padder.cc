@@ -51,9 +51,9 @@ bitSet
 Padder::serialize() const
 {
    bitSet serialized;
-   reverseAppend(serialized, convertToBitSet(getEncoderId(), sizeof(uint16_t) * 8));
-   reverseAppend(serialized, convertToBitSet(mPaddingMode, 8));
-   reverseAppend(serialized, convertToBitSet(mAddedBits, sizeof(uint32_t) * 8));
+   append(serialized, convertToBitSet(getEncoderId(), sizeof(uint16_t) * 8));
+   append(serialized, convertToBitSet(mPaddingMode, 8));
+   append(serialized, convertToBitSet(mAddedBits, sizeof(uint32_t) * 8));
    return serialized;
 }
 
@@ -70,13 +70,13 @@ Padder::deserializerFactory(const bitSet& data)
    if (currentIdx + sizeof(uint16_t) * 8 > data.size())
       return result;
 
-   auto encoderId = reverseSlice(data, currentIdx, sizeof(uint16_t) * 8).to_ulong();
+   auto encoderId = slice(data, currentIdx, sizeof(uint16_t) * 8).to_ulong();
    currentIdx += sizeof(uint16_t) * 8;
 
    if (encoderId != mEncoderId || currentIdx + 8 > data.size())
       return result;
 
-   auto mode = reverseSlice(data, currentIdx, 8).to_ulong();
+   auto mode = slice(data, currentIdx, 8).to_ulong();
    result->mPaddingMode =
      mode <= PaddingType::OddBytes ? static_cast<PaddingType>(mode) : PaddingType::None;
 
@@ -87,7 +87,7 @@ Padder::deserializerFactory(const bitSet& data)
       return result;
    }
 
-   result->mAddedBits = reverseSlice(data, currentIdx, sizeof(uint32_t) * 8).to_ulong();
+   result->mAddedBits = slice(data, currentIdx, sizeof(uint32_t) * 8).to_ulong();
    return result;
 }
 
@@ -119,7 +119,7 @@ Padder::encode(const bitSet& data)
       default:
          break;
    }
-   reverseAppend(result, padding);
+   append(result, padding);
    mAddedBits = result.size() - data.size();
 
    return result;
@@ -134,8 +134,7 @@ Padder::decode(const bitSet& data)
    if (!isValid())
       return bitSet();
 
-   // TODO: fix bit order
-   return copyReverseBits(reverseSlice(data, 0, data.size() - mAddedBits));
+   return slice(data, 0, data.size() - mAddedBits);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

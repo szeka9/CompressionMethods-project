@@ -55,15 +55,15 @@ appendBits_default_match()
 {
    bool result = true;
    bitSet b(std::string("111000"));
-   reverseAppend(b, bitSet(std::string("01")));
-   result = result && b == bitSet(std::string("10111000"));
+   append(b, bitSet(std::string("01")));
+   result = result && b == bitSet(std::string("01111000"));
 
    b = bitSet();
-   reverseAppend(b, bitSet(std::string("01")));
-   result = result && b == bitSet(std::string("10"));
+   append(b, bitSet(std::string("01")));
+   result = result && b == bitSet(std::string("01"));
 
    b = bitSet();
-   reverseAppend(b, bitSet());
+   append(b, bitSet());
    result = result && b == bitSet();
 
    return result;
@@ -121,9 +121,9 @@ sliceBitSet_default_match()
 {
    bool result = true;
    bitSet b(std::string("0101110"));
-   result = result && reverseSlice(b, 0, 2) == bitSet(std::string("01"));
-   result = result && reverseSlice(b, 3, 4) == bitSet(std::string("1010"));
-   result = result && reverseSlice(b, 0, 7) == bitSet(std::string("0111010"));
+   result = result && slice(b, 0, 2) == bitSet(std::string("10"));
+   result = result && slice(b, 3, 4) == bitSet(std::string("0101"));
+   result = result && slice(b, 0, 7) == bitSet(std::string("0101110"));
    return result;
 }
 

@@ -52,18 +52,14 @@ BinaryUtils::readBinary(const std::string& inputPath, size_t maxSize)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
-BinaryUtils::writeBinary(const std::string& outputPath, const bitSet& data, bool paddToBytes)
+BinaryUtils::writeBinary(const std::string& outputPath, const bitSet& data)
 {
-   if (data.size() % 8 != 0 && !paddToBytes) {
-      throw std::runtime_error("Inappropriate length, cannot use fractions of a byte!");
-   }
    std::ofstream out{ outputPath, std::ofstream::binary };
    size_t length = data.size() % 8 ? data.size() + 8 - data.size() % 8 : data.size();
-   length = length / 8;
-   std::vector<char> buffer(length);
+   std::vector<char> buffer(length / 8);
 
 #pragma omp parallel for
-   for (size_t i = 0; i < length * 8; i += 8)
+   for (size_t i = 0; i < length; i += 8)
       for (int j = 0; j < 8 && i + j < data.size(); ++j)
          buffer[size_t(i / 8)] += data[i + j] * pow(2, 7 - j);
 
@@ -84,16 +80,9 @@ BinaryUtils::convertToBitSet(size_t number, size_t numBits)
    size_t finalSize = size > numBits ? size : numBits;
    BinaryUtils::bitSet result(finalSize);
 
-   /*int pos = finalSize - 1;
-   for (size_t i = number % 2; number > 0 && pos >= 0; number /= 2, i = number % 2) {
+   size_t pos = 0;
+   for (size_t i = number % 2; number > 0 && pos < finalSize; number /= 2, i = number % 2, ++pos) {
       i ? result[pos] = 1 : result[pos] = 0;
-      --pos;
-   }
-   reverseBits(result);*/
-   int pos = 0;
-   for (size_t i = number % 2; number > 0 && pos < finalSize; number /= 2, i = number % 2) {
-      i ? result[pos] = 1 : result[pos] = 0;
-      ++pos;
    }
    return result;
 }
@@ -113,14 +102,8 @@ BinaryUtils::getStatistics(bitSet data, size_t symbolSize)
    }
 
    CodeProbabilityMap result;
-   std::tuple<bitSet, double> stats;
-   bitSet symbolBuffer(symbolSize);
-
    for (size_t i = 0; i < data.size(); i += symbolSize) {
-      for (size_t j = 0; j < symbolSize; ++j) {
-         symbolBuffer[j] = data[j + i];
-      }
-      result[symbolBuffer] += 1.0 / (data.size() / symbolSize);
+      result[slice(data, i, symbolSize)] += 1.0 / (data.size() / symbolSize);
    }
    return result;
 }
@@ -231,16 +214,6 @@ BinaryUtils::copyReverseBits(const bitSet& b)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// reverseAppend
-///////////////////////////////////////////////////////////////////////////////
-void
-BinaryUtils::reverseAppend(bitSet& to, const bitSet& from)
-{
-   for (int i = from.size() - 1; i >= 0; --i)
-      to.push_back(from[i]);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // append
 ///////////////////////////////////////////////////////////////////////////////
 void
@@ -254,26 +227,15 @@ BinaryUtils::append(bitSet& to, const bitSet& from)
 // assign
 ///////////////////////////////////////////////////////////////////////////////
 void
-BinaryUtils::assign(bitSet& to, const bitSet& from, size_t startIdx, size_t numBits)
+BinaryUtils::assign(bitSet& to,
+                    const bitSet& from,
+                    size_t startIdx_to,
+                    size_t numBits,
+                    size_t startIdx_from)
 {
-   for (size_t i = 0; i < from.size(); ++i)
-      to[startIdx + i] = from[startIdx + i];
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// reverseSlice
-// Get slice from bitSet
-///////////////////////////////////////////////////////////////////////////////
-
-bitSet
-BinaryUtils::reverseSlice(const bitSet& b, size_t startIdx, size_t numBits)
-{
-   bitSet result(numBits);
-
-   for (size_t i = startIdx + numBits - 1; i < b.size() && i >= startIdx; --i) {
-      result[numBits - i - 1 + startIdx] = b[i];
-   }
-   return result;
+   for (size_t i = 0; i + startIdx_to < to.size() && i + startIdx_from < to.size() && i < numBits;
+        ++i)
+      to[startIdx_to + i] = from[startIdx_from + i];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -346,8 +308,8 @@ BinaryUtils::serialize(std::vector<bitSet> data, size_t numBytes)
       if (bSize.size() != numBytes * 8)
          throw std::runtime_error("Incorrect width for indicating the data size!");
 
-      reverseAppend(result, bSize);
-      reverseAppend(result, b);
+      append(result, bSize);
+      append(result, b);
    }
    return result;
 }
@@ -361,16 +323,16 @@ BinaryUtils::deserialize(const bitSet& data, size_t numBytes)
 {
    std::vector<bitSet> result;
 
-   bitSet currentSize = reverseSlice(data, 0, numBytes * 8);
+   bitSet currentSize = slice(data, 0, numBytes * 8);
    size_t currentIdx = numBytes * 8;
    while (currentIdx + currentSize.to_ulong() <= data.size() && currentSize.to_ulong() > 0) {
-      result.push_back(reverseSlice(data, currentIdx, currentSize.to_ulong()));
+      result.push_back(slice(data, currentIdx, currentSize.to_ulong()));
       currentIdx += currentSize.to_ulong();
 
       if (currentIdx + numBytes * 8 > data.size()) {
          break;
       }
-      currentSize = reverseSlice(data, currentIdx, numBytes * 8);
+      currentSize = slice(data, currentIdx, numBytes * 8);
       currentIdx += numBytes * 8;
    }
 
