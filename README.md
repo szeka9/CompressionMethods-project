@@ -5,7 +5,7 @@
 3. custom serialization format (for Huffman encoding)
 4. a general framework to chain different encoders inheriting from a common interface
 
-The idea of this project is precompressor based on Markov chains, combined with a Huffman encoder. The project aims to reduce the entropy of an arbitrary binary data source (before compression) so that an entropy based compression algorithm can achieve better compression ratio. In orderd to achieve this, I implemented a general framework that can chain different steps of the compression sequentially. This way, it is simple to develop, test and combine new algorithms as well. 
+The main idea of this project is precompressor based on Markov chains, combined with a Huffman encoder. The precompressor aims to reduce the entropy of a binary data source so that an entropy based compression algorithm can achieve better compression ratio. To simplify the encoding process, I implemented a general framework that can chain different steps of the compression sequentially. This way, it is simple to develop, test and combine new algorithms as well. 
 
 <b>Precompressor pseudocode:</b>
   1. measure the frequency of each symbol transition (for consequent symbols)
@@ -14,9 +14,9 @@ The idea of this project is precompressor based on Markov chains, combined with 
   5. execute the encoding on the input data using the encoding table (starting from the first symbol)
   6. apply Huffman encoding (or other arbitrary compression algorithm)
 
-The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is noticable improvement in the compression (15-20%). However, further testing and evaluation is needed since certain steps of the algorithm use predefined constants.
+The algorithm was mostly tested on network traffic data (.pcap), and in most cases there is a noticable improvement in the compression (15-20%). However, further testing and evaluation is needed since certain steps of the algorithm use predefined constants.
 
-The implementation does support serializing the compressed data, however the file size should not exceed 6MB, since this feature is experimental.
+The implementation does support serializing the compressed data, however the file size should not exceed 6MB.
 
 ## How to run
 
