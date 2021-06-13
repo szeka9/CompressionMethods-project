@@ -1,5 +1,3 @@
-# Compression methods project repository
-
 ## Description
 <b>The implementation contains:</b>
 1. a Huffman encoder based on transducers
